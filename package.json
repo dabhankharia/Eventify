@@ -1,17 +1,19 @@
 {
-  "name": "event-booking-app",
+  "name": "eventify-monorepo",
   "version": "1.0.0",
-  "description": "Full-Stack Event Booking & Management System with Integrated JWT Authentication",
-  "main": "server.js",
+  "description": "Eventify - Full-Stack Event Booking Platform (PostgreSQL, Drizzle ORM, Express.js, React)",
   "scripts": {
-    "start": "node server.js",
-    "dev": "node server.js"
+    "dev": "concurrently -k -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"cyan.bold,magenta.bold\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev:backend": "npm run dev --prefix backend",
+    "dev:frontend": "npm run dev --prefix frontend",
+    "build": "npm run build --prefix frontend",
+    "start": "npm start --prefix backend",
+    "db:push": "npm run db:push --prefix backend",
+    "db:seed": "npm run db:seed --prefix backend",
+    "db:studio": "npm run db:studio --prefix backend",
+    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install"
   },
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "dotenv": "^16.4.5",
-    "express": "^4.19.2",
-    "jsonwebtoken": "^9.0.2"
+  "devDependencies": {
+    "concurrently": "^10.0.5"
   }
 }
