@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Eventify - Premier Event Booking & Management Platform with Integrated Razorpay Payments, Live QR Pass Tickets, and Organizer Portals.">
+    <title>Eventify | Premier Event Booking & Management Platform</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- External Libraries: Razorpay & QRCode.js -->
+    <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <!-- Background Glow Elements -->
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+
+    <!-- MAIN APP CONTAINER -->
+    <div class="app-shell">
+        
+        <!-- NAVBAR -->
+        <header class="navbar" id="top-navbar">
+            <div class="nav-brand" onclick="navigateTo('explore')">
+                <div class="brand-logo-icon">
+                    <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="16" y1="2" x2="16" y2="6"/>
+                        <line x1="8" y1="2" x2="8" y2="6"/>
+                        <line x1="3" y1="10" x2="21" y2="10"/>
+                        <path d="M8 14h.01"/>
+                        <path d="M12 14h.01"/>
+                        <path d="M16 14h.01"/>
+                        <path d="M8 18h.01"/>
+                        <path d="M12 18h.01"/>
+                    </svg>
+                </div>
+                <span class="brand-title">Event<span class="brand-highlight">ify</span></span>
+            </div>
+
+            <nav class="nav-links">
+                <button class="nav-item active" id="nav-explore" onclick="navigateTo('explore')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"/></svg>
+                    Explore Events
+                </button>
+                <button class="nav-item" id="nav-bookings" onclick="navigateTo('bookings')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/></svg>
+                    My Pass Bookings
+                    <span class="badge-count hidden" id="my-bookings-count">0</span>
+                </button>
+                <button class="nav-item" id="nav-organizer" onclick="navigateTo('organizer')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                    Organizer Studio
+                </button>
+            </nav>
+
+            <div class="nav-auth-area" id="nav-auth-area">
+                <!-- Anonymous state -->
+                <button class="btn-signin-nav" id="btn-open-auth" onclick="openAuthModal('login')">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    Sign In / Register
+                </button>
+
+                <!-- Authenticated state -->
+                <div class="user-pill hidden" id="user-profile-pill">
+                    <div class="user-avatar-sm" id="nav-avatar">DB</div>
+                    <div class="user-meta">
+                        <span class="user-meta-name" id="nav-user-name">Dhruvil Bhankharia</span>
+                        <span class="user-meta-role" id="nav-user-role">Attendee</span>
+                    </div>
+                    <button class="btn-logout-icon" onclick="handleLogout()" title="Logout">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                    </button>
+                </div>
+            </div>
+        </header>
+
+        <!-- MAIN VIEW PORTAL -->
+        <main class="main-viewport">
+            
+            <!-- VIEW 1: EXPLORE EVENTS -->
+            <section class="view-section active" id="view-explore">
+                
+                <!-- Hero Banner -->
+                <div class="hero-banner">
+                    <div class="hero-content">
+                        <h1 class="hero-title">Experience Unforgettable Events</h1>
+                        <p class="hero-subtitle">Discover top-tier tech summits, music festivals, venture conclaves, and hands-on workshops across India.</p>
+                        
+                        <!-- Search & Filter Bar -->
+                        <div class="search-filter-box">
+                            <div class="search-input-wrapper">
+                                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                                <input type="text" id="event-search-input" placeholder="Search events by title, venue, city (Bengaluru, Goa, Mumbai...), or keyword..." oninput="handleSearchFilter()">
+                            </div>
+                            <div class="category-pills">
+                                <button class="cat-pill active" onclick="filterCategory('All', this)">All</button>
+                                <button class="cat-pill" onclick="filterCategory('Tech', this)">Tech</button>
+                                <button class="cat-pill" onclick="filterCategory('Music', this)">Music</button>
+                                <button class="cat-pill" onclick="filterCategory('Business', this)">Business</button>
+                                <button class="cat-pill" onclick="filterCategory('Workshops', this)">Workshops</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Events Grid Section -->
+                <div class="section-header">
+                    <h2>Upcoming Events in India</h2>
+                    <span class="events-counter" id="events-count-label">Loading events...</span>
+                </div>
+
+                <div class="events-grid" id="events-grid-container">
+                    <!-- Dynamic Event Cards Injected Here -->
+                </div>
+            </section>
+
+            <!-- VIEW 2: MY BOOKED PASSES -->
+            <section class="view-section hidden" id="view-bookings">
+                <div class="section-header border-bottom">
+                    <div>
+                        <h2>My Event Pass Bookings</h2>
+                        <p class="section-desc">Manage your reserved tickets, access dynamic digital QR passes, or cancel bookings.</p>
+                    </div>
+                </div>
+
+                <div class="bookings-grid" id="my-bookings-container">
+                    <!-- Dynamic Bookings Injected Here -->
+                </div>
+            </section>
+
+            <!-- VIEW 3: ORGANIZER STUDIO -->
+            <section class="view-section hidden" id="view-organizer">
+                <div class="organizer-header-card">
+                    <div class="organizer-banner-info">
+                        <span class="badge-organizer">Eventify Organizer Portal</span>
+                        <h2>Event Creator & Studio Center</h2>
+                        <p>Publish new summits, manage ticket quotas, and monitor live sales analytics. Requires an <strong>Organizer</strong> role.</p>
+                    </div>
+                    <div class="organizer-stats">
+                        <div class="org-stat-box">
+                            <span class="stat-num" id="org-stat-events">4</span>
+                            <span class="stat-lbl">Active Events</span>
+                        </div>
+                        <div class="org-stat-box">
+                            <span class="stat-num" id="org-stat-sales">₹2,48,290</span>
+                            <span class="stat-lbl">Total Revenue</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Restricted Access Overlay for Attendees -->
+                <div class="organizer-restriction-banner hidden" id="organizer-restriction-banner">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    <div>
+                        <strong>Organizer Access Restricted</strong>
+                        <p>You are logged in as an <strong>Attendee</strong>. Only users with the <strong>Organizer</strong> role can create or delete events. Log in with an Organizer account to publish events.</p>
+                    </div>
+                    <button type="button" class="btn-secondary" onclick="openAuthModal('login')">Switch Account</button>
+                </div>
+
+                <!-- Event Creation Form Card -->
+                <div class="create-event-card" id="create-event-card-box">
+                    <h3>Create & Publish New Event</h3>
+                    <form id="create-event-form" onsubmit="handleCreateEvent(event)">
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="evt-title">Event Title</label>
+                                <input type="text" id="evt-title" placeholder="e.g. NextGen Cloud Architecture Conclave" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="evt-category">Category</label>
+                                <select id="evt-category" class="custom-select">
+                                    <option value="Tech">Tech</option>
+                                    <option value="Music">Music</option>
+                                    <option value="Business">Business</option>
+                                    <option value="Workshops">Workshops</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-3">
+                            <div class="form-group">
+                                <label for="evt-date">Date</label>
+                                <input type="date" id="evt-date" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="evt-time">Time & Schedule</label>
+                                <input type="text" id="evt-time" placeholder="10:00 AM - 05:00 PM IST">
+                            </div>
+
+                            <div class="form-group">
+                                <label for="evt-price">Price per Ticket (₹)</label>
+                                <input type="number" id="evt-price" placeholder="1499" min="0" required>
+                            </div>
+                        </div>
+
+                        <div class="form-grid-2">
+                            <div class="form-group">
+                                <label for="evt-location">Venue / Location</label>
+                                <input type="text" id="evt-location" placeholder="e.g. BIEC Bengaluru or Taj Lands End Mumbai" required>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="evt-seats">Total Seat Quota</label>
+                                <input type="number" id="evt-seats" placeholder="250" min="10" required>
+                            </div>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="evt-desc">Event Description</label>
+                            <textarea id="evt-desc" rows="3" placeholder="Provide event highlights, agenda details, and keynote speaker info..."></textarea>
+                        </div>
+
+                        <button type="submit" class="btn-publish" id="btn-publish-evt">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 2L11 13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                            Publish Event to Eventify
+                        </button>
+                    </form>
+                </div>
+
+            </section>
+
+        </main>
+    </div>
+
+    <!-- MODAL 1: AUTHENTICATION (Login / Register) -->
+    <div class="modal-overlay hidden" id="auth-modal">
+        <div class="modal-card auth-modal-card">
+            <button class="modal-close" onclick="closeAuthModal()">✕</button>
+            
+            <div class="auth-modal-header">
+                <h2 id="modal-auth-title">Sign In to Eventify</h2>
+                <p id="modal-auth-subtitle">Access your digital ticket passes or manage your events</p>
+            </div>
+
+            <!-- Tab Switcher -->
+            <div class="tab-switcher">
+                <button class="tab-btn active" id="modal-tab-login" onclick="switchModalAuthTab('login')">Sign In</button>
+                <button class="tab-btn" id="modal-tab-register" onclick="switchModalAuthTab('register')">Register Account</button>
+            </div>
+
+            <!-- Demo Quick Fill Buttons -->
+            <div class="demo-quick-row">
+                <button type="button" class="btn-demo-pill" onclick="fillQuickAuth('dhruvil@example.com', 'Password123!')">
+                    <span>⚡ Demo Attendee</span> (Dhruvil Bhankharia)
+                </button>
+                <button type="button" class="btn-demo-pill organizer" onclick="fillQuickAuth('bhankharia.dhruvil@eventify.in', 'Password123!')">
+                    <span>👑 Demo Organizer</span> (Bhankharia Dhruvil)
+                </button>
+            </div>
+
+            <!-- LOGIN FORM -->
+            <form id="modal-login-form" onsubmit="handleModalLogin(event)">
+                <div class="form-group">
+                    <label for="modal-login-email">Email Address</label>
+                    <input type="email" id="modal-login-email" placeholder="jane@example.com" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-login-password">Password</label>
+                    <input type="password" id="modal-login-password" placeholder="••••••••••••" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" class="btn-primary" id="btn-modal-login">
+                    <span>Sign In & Continue</span>
+                </button>
+            </form>
+
+            <!-- REGISTER FORM -->
+            <form id="modal-register-form" class="hidden" onsubmit="handleModalRegister(event)">
+                <div class="form-group">
+                    <label for="modal-reg-name">Full Name</label>
+                    <input type="text" id="modal-reg-name" placeholder="Jane Doe" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-reg-email">Email Address</label>
+                    <input type="email" id="modal-reg-email" placeholder="jane@company.com" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-reg-role">Account Type</label>
+                    <select id="modal-reg-role" class="custom-select">
+                        <option value="Attendee">Attendee (Browse & Book Tickets)</option>
+                        <option value="Organizer">Event Organizer (Publish & Manage Events)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="modal-reg-password">Password</label>
+                    <input type="password" id="modal-reg-password" placeholder="At least 6 characters" required>
+                </div>
+
+                <button type="submit" class="btn-primary" id="btn-modal-register">
+                    <span>Create Account & Log In</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- MODAL 2: EVENT DETAILS & BOOKING CHECKOUT -->
+    <div class="modal-overlay hidden" id="booking-modal">
+        <div class="modal-card booking-modal-card">
+            <button class="modal-close" onclick="closeBookingModal()">✕</button>
+
+            <div class="modal-event-banner" id="modal-evt-banner">
+                <span class="banner-badge" id="modal-evt-badge">Featured</span>
+                <h2 id="modal-evt-title">India Tech & AI Developer Summit 2026</h2>
+            </div>
+
+            <div class="modal-body-content">
+                <div class="event-meta-bar">
+                    <div class="meta-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                        <span id="modal-evt-date">Oct 15, 2026</span>
+                    </div>
+                    <div class="meta-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                        <span id="modal-evt-time">09:30 AM - 05:30 PM IST</span>
+                    </div>
+                    <div class="meta-item">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                        <span id="modal-evt-location">BIEC Bengaluru</span>
+                    </div>
+                </div>
+
+                <p class="modal-evt-description" id="modal-evt-desc">Join 2,000+ engineers, founders, and AI practitioners exploring autonomous agents, LLM architectures, and cloud automation.</p>
+
+                <hr class="divider">
+
+                <!-- BOOKING SELECTION -->
+                <div class="checkout-section">
+                    <h3>Select Ticket Pass Tier</h3>
+
+                    <div class="tier-options">
+                        <label class="tier-card active">
+                            <input type="radio" name="ticket-tier" value="General Admission" checked onchange="updateCheckoutTotal()">
+                            <div class="tier-info">
+                                <span class="tier-name">General Admission</span>
+                                <span class="tier-sub">Full day mainstage access + recordings</span>
+                            </div>
+                            <span class="tier-price" id="tier-price-gen">₹1,499</span>
+                        </label>
+
+                        <label class="tier-card">
+                            <input type="radio" name="ticket-tier" value="VIP Pass" onchange="updateCheckoutTotal()">
+                            <div class="tier-info">
+                                <span class="tier-name">VIP All-Access Pass</span>
+                                <span class="tier-sub">Priority front seats, VIP lounge & networking dinner</span>
+                            </div>
+                            <span class="tier-price" id="tier-price-vip">₹2,398</span>
+                        </label>
+
+                        <label class="tier-card">
+                            <input type="radio" name="ticket-tier" value="Early Bird" onchange="updateCheckoutTotal()">
+                            <div class="tier-info">
+                                <span class="tier-name">Early Bird Discount</span>
+                                <span class="tier-sub">15% off standard admission price</span>
+                            </div>
+                            <span class="tier-price" id="tier-price-early">₹1,274</span>
+                        </label>
+                    </div>
+
+                    <div class="quantity-selector-row">
+                        <label>Ticket Quantity:</label>
+                        <div class="qty-stepper">
+                            <button type="button" class="btn-qty" onclick="adjustQty(-1)">-</button>
+                            <span class="qty-val" id="qty-count">1</span>
+                            <button type="button" class="btn-qty" onclick="adjustQty(1)">+</button>
+                        </div>
+                    </div>
+
+                    <div class="checkout-footer">
+                        <div class="total-price-box">
+                            <span class="total-label">Total Amount</span>
+                            <span class="total-amount" id="checkout-total-val">₹1,499</span>
+                        </div>
+
+                        <div class="checkout-buttons-row">
+                            <button type="button" class="btn-razorpay" id="btn-pay-razorpay" onclick="triggerRazorpayCheckout()">
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+                                Pay with Razorpay (₹)
+                            </button>
+
+                            <button type="button" class="btn-demo-free" id="btn-pay-demo" onclick="processTicketBooking('Free Presentation Demo')">
+                                ⚡ Free Pass (Presentation Mode)
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 3: DIGITAL TICKET PASS (With Dynamic Authentic QR Code) -->
+    <div class="modal-overlay hidden" id="pass-modal">
+        <div class="modal-card pass-modal-card">
+            <button class="modal-close" onclick="closePassModal()">✕</button>
+
+            <div class="pass-ticket-stub">
+                <div class="pass-header-gradient">
+                    <span class="pass-badge">EVENTIFY CONFIRMED PASS</span>
+                    <h2 id="pass-event-title">India Tech & AI Developer Summit 2026</h2>
+                </div>
+
+                <div class="pass-body">
+                    <div class="pass-info-grid">
+                        <div class="pass-field">
+                            <span class="field-lbl">PASS HOLDER</span>
+                            <span class="field-val highlight" id="pass-user-name">Jane Doe</span>
+                        </div>
+                        <div class="pass-field">
+                            <span class="field-lbl">TICKET REFERENCE</span>
+                            <span class="field-val mono" id="pass-ticket-code">EVENTIFY-849201</span>
+                        </div>
+                        <div class="pass-field">
+                            <span class="field-lbl">DATE & TIME</span>
+                            <span class="field-val" id="pass-date-time">Oct 15, 2026 • 09:30 AM</span>
+                        </div>
+                        <div class="pass-field">
+                            <span class="field-lbl">LOCATION / VENUE</span>
+                            <span class="field-val" id="pass-venue">BIEC Bengaluru</span>
+                        </div>
+                        <div class="pass-field">
+                            <span class="field-lbl">TIER & QUANTITY</span>
+                            <span class="field-val" id="pass-tier-qty">General Admission (x1)</span>
+                        </div>
+                        <div class="pass-field">
+                            <span class="field-lbl">TOTAL PAID</span>
+                            <span class="field-val text-green" id="pass-total-paid">₹1,499</span>
+                        </div>
+                    </div>
+
+                    <!-- Dynamic Real QR Code Container -->
+                    <div class="qr-container">
+                        <div id="qrcode-box" class="qr-box"></div>
+                        <span class="qr-sub">Scan at Venue Check-In Gate</span>
+                    </div>
+                </div>
+
+                <div class="pass-footer">
+                    <button type="button" class="btn-secondary" onclick="window.print()">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+                        Print / Save PDF
+                    </button>
+                    <button type="button" class="btn-primary" onclick="closePassModal()">Done</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL 4: INTERACTIVE RAZORPAY CHECKOUT POPUP -->
+    <div class="modal-overlay hidden" id="razorpay-modal">
+        <div class="modal-card rzp-modal-card">
+            <button class="modal-close" onclick="closeRazorpayModal()">✕</button>
+
+            <div class="rzp-header">
+                <div class="rzp-brand-info">
+                    <div class="rzp-logo-badge">R</div>
+                    <div>
+                        <h3 class="rzp-merchant">Eventify Passes</h3>
+                        <p class="rzp-desc" id="rzp-item-desc">VIP Pass x 1 for Event</p>
+                    </div>
+                </div>
+                <div class="rzp-amount-badge">
+                    <span class="rzp-lbl">AMOUNT TO PAY</span>
+                    <span class="rzp-val" id="rzp-modal-amount">₹1,499</span>
+                </div>
+            </div>
+
+            <div class="rzp-body">
+                <div class="rzp-nav-tabs">
+                    <button class="rzp-tab active" id="tab-rzp-upi" onclick="switchRzpTab('upi')">UPI / QR</button>
+                    <button class="rzp-tab" id="tab-rzp-card" onclick="switchRzpTab('card')">Cards</button>
+                    <button class="rzp-tab" id="tab-rzp-nb" onclick="switchRzpTab('nb')">Netbanking</button>
+                </div>
+
+                <!-- UPI View -->
+                <div class="rzp-view-content" id="rzp-view-upi">
+                    <div class="upi-apps-grid">
+                        <div class="upi-app-chip" onclick="executeRazorpayPayment('GPay UPI')">
+                            <span class="chip-icon green">G</span> GPay
+                        </div>
+                        <div class="upi-app-chip" onclick="executeRazorpayPayment('PhonePe UPI')">
+                            <span class="chip-icon purple">P</span> PhonePe
+                        </div>
+                        <div class="upi-app-chip" onclick="executeRazorpayPayment('Paytm UPI')">
+                            <span class="chip-icon blue">P</span> Paytm
+                        </div>
+                        <div class="upi-app-chip" onclick="executeRazorpayPayment('BHIM UPI')">
+                            <span class="chip-icon orange">B</span> BHIM
+                        </div>
+                    </div>
+                    <div class="upi-input-group">
+                        <input type="text" id="rzp-vpa-input" placeholder="enter-vpa@upi (e.g. mobile@okicici)">
+                        <button type="button" class="btn-rzp-pay" onclick="executeRazorpayPayment('VPA UPI')">Pay Now</button>
+                    </div>
+                </div>
+
+                <!-- Card View -->
+                <div class="rzp-view-content hidden" id="rzp-view-card">
+                    <div class="form-group">
+                        <label>Card Number</label>
+                        <input type="text" placeholder="4111 2222 3333 4444" value="4111 2222 3333 4444">
+                    </div>
+                    <div class="form-grid-2">
+                        <div class="form-group">
+                            <label>Expiry Date</label>
+                            <input type="text" placeholder="12 / 28" value="12 / 28">
+                        </div>
+                        <div class="form-group">
+                            <label>CVV</label>
+                            <input type="password" placeholder="123" value="123">
+                        </div>
+                    </div>
+                    <button type="button" class="btn-rzp-pay" onclick="executeRazorpayPayment('Credit/Debit Card')">Authorize & Pay</button>
+                </div>
+
+                <!-- Netbanking View -->
+                <div class="rzp-view-content hidden" id="rzp-view-nb">
+                    <div class="netbanking-grid">
+                        <button class="nb-bank-btn" onclick="executeRazorpayPayment('HDFC Netbanking')">HDFC Bank</button>
+                        <button class="nb-bank-btn" onclick="executeRazorpayPayment('ICICI Netbanking')">ICICI Bank</button>
+                        <button class="nb-bank-btn" onclick="executeRazorpayPayment('SBI Netbanking')">State Bank of India</button>
+                        <button class="nb-bank-btn" onclick="executeRazorpayPayment('Axis Netbanking')">Axis Bank</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="rzp-footer">
+                <span class="rzp-secured">🔒 Secured by Razorpay Payment Gateway</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="app.js"></script>
+</body>
+</html>
