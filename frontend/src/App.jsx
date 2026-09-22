@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import Navbar from './components/Navbar';
 import Hero from './components/Hero';
@@ -12,7 +12,7 @@ import PassModal from './components/PassModal';
 import ToastContainer from './components/Toast';
 
 function MainApp() {
-    const { currentUser, isOrganizer } = useAuth();
+    const { currentUser } = useAuth();
 
     // App state
     const [activeTab, setActiveTab] = useState('explore');
@@ -46,7 +46,7 @@ function MainApp() {
     };
 
     // Load events from API (with search and category)
-    const fetchEvents = async () => {
+    const fetchEvents = useCallback(async () => {
         try {
             setLoadingEvents(true);
             let url = `/api/events?category=${encodeURIComponent(selectedCategory)}`;
@@ -59,19 +59,19 @@ function MainApp() {
             if (data.success) {
                 setEvents(data.events);
             }
-        } catch (err) {
-            console.error('Fetch events error:', err);
+        } catch {
+            console.error('Fetch events error');
         } finally {
             setLoadingEvents(false);
         }
-    };
+    }, [selectedCategory, searchQuery]);
 
     useEffect(() => {
         fetchEvents();
-    }, [selectedCategory, searchQuery]);
+    }, [fetchEvents]);
 
     // Load user bookings
-    const fetchMyBookings = async () => {
+    const fetchMyBookings = useCallback(async () => {
         const token = localStorage.getItem('nexus_jwt_token');
         if (!token || !currentUser) {
             setBookings([]);
@@ -86,14 +86,14 @@ function MainApp() {
             if (data.success) {
                 setBookings(data.bookings);
             }
-        } catch (err) {
-            console.error('Fetch bookings error:', err);
+        } catch {
+            console.error('Fetch bookings error');
         }
-    };
+    }, [currentUser]);
 
     useEffect(() => {
         fetchMyBookings();
-    }, [currentUser]);
+    }, [fetchMyBookings]);
 
     // Handle Open Auth Modal
     const handleOpenAuth = (mode = 'login') => {
@@ -136,7 +136,7 @@ function MainApp() {
             } else {
                 showToast(resData.message || 'Booking failed', 'error');
             }
-        } catch (err) {
+        } catch {
             showToast('Error completing demo booking.', 'error');
         }
     };
@@ -178,7 +178,7 @@ function MainApp() {
             } else {
                 showToast(resData.message || 'Payment processing failed', 'error');
             }
-        } catch (err) {
+        } catch {
             showToast('Error recording booking transaction.', 'error');
         }
     };
@@ -201,7 +201,7 @@ function MainApp() {
             } else {
                 showToast(data.message || 'Failed to cancel booking', 'error');
             }
-        } catch (err) {
+        } catch {
             showToast('Error cancelling booking.', 'error');
         }
     };
@@ -223,7 +223,7 @@ function MainApp() {
             } else {
                 showToast(data.message || 'Failed to delete event', 'error');
             }
-        } catch (err) {
+        } catch {
             showToast('Error deleting event.', 'error');
         }
     };
@@ -270,7 +270,7 @@ function MainApp() {
                 {activeTab === 'organizer' && (
                     <OrganizerStudio
                         events={events}
-                        onEventCreated={(newEvent) => {
+                        onEventCreated={() => {
                             fetchEvents();
                             setActiveTab('explore');
                         }}

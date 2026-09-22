@@ -1,10 +1,8 @@
 import React, { useState } from 'react';
-import { X, Lock, Mail, User, ShieldCheck } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login', showToast }) {
-    if (!isOpen) return null;
-
     const [mode, setMode] = useState(initialMode);
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
@@ -13,6 +11,8 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', show
     const [loading, setLoading] = useState(false);
 
     const { login, register } = useAuth();
+
+    if (!isOpen) return null;
 
     const handleQuickFill = (demoEmail, demoPass) => {
         setEmail(demoEmail);
@@ -43,7 +43,7 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', show
                     showToast(res.message, 'error');
                 }
             }
-        } catch (err) {
+        } catch {
             showToast('Authentication connection error.', 'error');
         } finally {
             setLoading(false);

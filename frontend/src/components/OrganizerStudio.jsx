@@ -63,7 +63,7 @@ export default function OrganizerStudio({ events, onEventCreated, openAuthModal,
             } else {
                 showToast(data.message || 'Failed to publish event', 'error');
             }
-        } catch (err) {
+        } catch {
             showToast('Error connecting to backend API.', 'error');
         } finally {
             setSubmitting(false);

@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { X, ShieldCheck } from 'lucide-react';
 
 export default function RazorpayModal({ isOpen, onClose, checkoutData, onCompletePayment }) {
-    if (!isOpen || !checkoutData) return null;
-
     const [activeTab, setActiveTab] = useState('upi');
     const [vpa, setVpa] = useState('');
+
+    if (!isOpen || !checkoutData) return null;
 
     const handlePay = (methodName) => {
         const payId = 'pay_rzp_' + Math.floor(100000 + Math.random() * 900000);

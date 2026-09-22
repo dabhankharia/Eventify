@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Printer, CheckCircle } from 'lucide-react';
+import { X, Printer } from 'lucide-react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function PassModal({ isOpen, onClose, booking }) {

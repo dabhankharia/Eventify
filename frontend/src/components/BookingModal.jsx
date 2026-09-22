@@ -11,11 +11,11 @@ export default function BookingModal({
     openAuthModal,
     showToast
 }) {
-    if (!isOpen || !event) return null;
-
     const [selectedTier, setSelectedTier] = useState('General Admission');
     const [quantity, setQuantity] = useState(1);
     const { currentUser } = useAuth();
+
+    if (!isOpen || !event) return null;
 
     // Multipliers
     let multiplier = 1.0;

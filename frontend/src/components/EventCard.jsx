@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, Clock, MapPin, Users, Trash2 } from 'lucide-react';
+import { Calendar, MapPin, Users, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function EventCard({ event, onBook, onDelete }) {
