@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "description": "Eventify - Full-Stack Event Booking Platform (PostgreSQL, Drizzle ORM, Express.js, React)",
   "scripts": {
-    "dev": "concurrently -k -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"cyan.bold,magenta.bold\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
+    "dev": "npx --yes concurrently -k -p \"[{name}]\" -n \"BACKEND,FRONTEND\" -c \"cyan.bold,magenta.bold\" \"npm run dev --prefix backend\" \"npm run dev --prefix frontend\"",
     "dev:backend": "npm run dev --prefix backend",
     "dev:frontend": "npm run dev --prefix frontend",
     "build": "npm run build --prefix frontend",
@@ -11,9 +11,6 @@
     "db:push": "npm run db:push --prefix backend",
     "db:seed": "npm run db:seed --prefix backend",
     "db:studio": "npm run db:studio --prefix backend",
-    "install:all": "npm install && npm --prefix backend install && npm --prefix frontend install"
-  },
-  "devDependencies": {
-    "concurrently": "^10.0.5"
+    "install:all": "npm --prefix backend install && npm --prefix frontend install"
   }
 }

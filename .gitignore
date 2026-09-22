@@ -1,17 +1,19 @@
-# Dependencies
+# Dependencies (all workspaces)
 node_modules/
-backend/node_modules/
-frontend/node_modules/
+**/node_modules/
 
-# Build outputs
-frontend/dist/
+# Production build artifacts
 dist/
+**/dist/
+frontend/dist/
 
-# Environment variables
+# Environment variables & secrets (never commit secrets)
 .env
-.env.local
-backend/.env
-frontend/.env
+.env.*
+**/.env
+**/.env.*
+!.env.example
+!**/.env.example
 
 # Logs
 *.log
@@ -24,3 +26,8 @@ yarn-error.log*
 Thumbs.db
 .vscode/
 .idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
