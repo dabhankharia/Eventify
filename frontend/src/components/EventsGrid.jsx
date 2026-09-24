@@ -5,7 +5,7 @@ export default function EventsGrid({ events, loading, onBook, onDelete }) {
     if (loading) {
         return (
             <div style={{ textAlign: 'center', padding: '60px 20px', color: 'var(--text-muted)' }}>
-                <p>Loading premier Indian events from PostgreSQL...</p>
+                <p>Loading upcoming events...</p>
             </div>
         );
     }

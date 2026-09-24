@@ -1,5 +1,5 @@
 import React from 'react';
-import { Search, Sparkles } from 'lucide-react';
+import { Search } from 'lucide-react';
 
 export default function Hero({ searchQuery, setSearchQuery, selectedCategory, setSelectedCategory }) {
     const categories = ['All', 'Tech', 'Music', 'Business', 'Workshops'];
@@ -7,10 +7,7 @@ export default function Hero({ searchQuery, setSearchQuery, selectedCategory, se
     return (
         <div className="hero-banner">
             <div className="hero-content">
-                <div className="hero-badge-pill">
-                    <Sparkles size={14} />
-                    <span>Powered by PostgreSQL, Drizzle ORM & React</span>
-                </div>
+
                 <h1 className="hero-title">Experience Unforgettable Events</h1>
                 <p className="hero-subtitle">
                     Discover premier tech summits, music festivals, venture conclaves, and hands-on developer workshops across India.

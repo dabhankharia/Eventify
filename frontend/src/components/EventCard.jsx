@@ -44,7 +44,7 @@ export default function EventCard({ event, onBook, onDelete }) {
                             <button
                                 className="btn-delete-evt"
                                 onClick={() => onDelete(event.id)}
-                                title="Delete event from PostgreSQL"
+                                title="Delete event"
                             >
                                 <Trash2 size={16} />
                             </button>

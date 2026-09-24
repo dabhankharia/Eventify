@@ -148,7 +148,7 @@ Edit `backend/.env` with your PostgreSQL database credentials and JWT secret:
 ```env
 PORT=3001
 NODE_ENV=development
-JWT_SECRET=eventify_jwt_super_secure_2026_key_#12903!
+JWT_SECRET=replace_with_a_long_random_string
 DATABASE_URL=postgresql://postgres:postgres@localhost:5432/eventify
 ```
 

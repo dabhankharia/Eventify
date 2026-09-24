@@ -23,7 +23,7 @@ export default function OrganizerStudio({ events, onEventCreated, openAuthModal,
         e.preventDefault();
 
         if (!isOrganizer) {
-            showToast('Organizer role required to publish events to PostgreSQL.', 'error');
+            showToast('Organizer role required to publish events.', 'error');
             return;
         }
 
@@ -51,7 +51,7 @@ export default function OrganizerStudio({ events, onEventCreated, openAuthModal,
 
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast('New Event Published to PostgreSQL via Drizzle ORM!', 'success');
+                showToast('New Event Published Successfully!', 'success');
                 setTitle('');
                 setDate('');
                 setTime('');
@@ -77,7 +77,7 @@ export default function OrganizerStudio({ events, onEventCreated, openAuthModal,
                     <span className="badge-organizer">Eventify Organizer Portal</span>
                     <h2 style={{ fontSize: '1.6rem', fontWeight: 800 }}>Event Creator & Studio Center</h2>
                     <p style={{ color: 'var(--text-muted)', marginTop: '6px', fontSize: '0.95rem' }}>
-                        Publish summits, configure ticket quotas, and monitor live metrics in PostgreSQL. Requires an <strong>Organizer</strong> role.
+                        Publish summits, configure ticket quotas, and monitor live metrics. Requires an <strong>Organizer</strong> role.
                     </p>
                 </div>
 
@@ -217,7 +217,7 @@ export default function OrganizerStudio({ events, onEventCreated, openAuthModal,
 
                     <button type="submit" className="btn-publish" disabled={submitting || !isOrganizer}>
                         <Send size={18} />
-                        {submitting ? 'Publishing to PostgreSQL...' : 'Publish Event to Eventify'}
+                        {submitting ? 'Publishing Event...' : 'Publish Event to Eventify'}
                     </button>
                 </form>
             </div>

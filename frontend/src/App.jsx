@@ -195,7 +195,7 @@ function MainApp() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast('Booking cancelled and seats restored to PostgreSQL.', 'info');
+                showToast('Booking cancelled and seats successfully restored.', 'info');
                 fetchMyBookings();
                 fetchEvents();
             } else {
@@ -208,7 +208,7 @@ function MainApp() {
 
     // Handle Delete Event (Organizer Only)
     const handleDeleteEvent = async (eventId) => {
-        if (!confirm('Are you sure you want to delete this event from PostgreSQL?')) return;
+        if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) return;
 
         const token = localStorage.getItem('nexus_jwt_token');
         try {
@@ -218,7 +218,7 @@ function MainApp() {
             });
             const data = await res.json();
             if (res.ok && data.success) {
-                showToast('Event deleted from PostgreSQL.', 'info');
+                showToast('Event deleted successfully.', 'info');
                 fetchEvents();
             } else {
                 showToast(data.message || 'Failed to delete event', 'error');
