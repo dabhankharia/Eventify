@@ -1,4 +1,4 @@
-# 🎟️ Eventify — Full-Stack Event Booking & Management Platform
+# Eventify — Full-Stack Event Booking & Management Platform
 
 [![Stack](https://img.shields.io/badge/Stack-PostgreSQL%20%7C%20Drizzle%20%7C%20Express%20%7C%20React-blue.svg)](https://github.com/dabhankharia/Eventify)
 [![Authentication](https://img.shields.io/badge/Auth-JWT%20%2B%20Bcrypt-green.svg)](https://jwt.io/)
@@ -9,38 +9,7 @@
 
 ---
 
-## 🏛️ System Architecture
-
-```mermaid
-graph LR
-    subgraph Frontend ["Frontend (React + Vite SPA)"]
-        UI["Glassmorphic UI"]
-        AuthCtx["AuthContext (JWT + User State)"]
-        Modals["Booking, Pass & Razorpay Modals"]
-        Studio["Organizer Studio"]
-    end
-
-    subgraph Backend ["Backend (Node.js + Express API)"]
-        Routes["API Routes (/api/auth, /api/events, /api/bookings)"]
-        Middleware["JWT Verification & Role Guard"]
-        Controllers["Auth, Event & Booking Controllers"]
-    end
-
-    subgraph Database ["Database Layer (PostgreSQL + Drizzle ORM)"]
-        Drizzle["Drizzle ORM (node-postgres)"]
-        DBSchema["Schema (users, events, bookings)"]
-        PG[(PostgreSQL Database)]
-    end
-
-    UI -->|HTTP Requests / Proxy| Routes
-    Routes --> Middleware --> Controllers
-    Controllers --> Drizzle
-    Drizzle --> DBSchema --> PG
-```
-
----
-
-## 📁 Clean Separated Monorepo Structure
+## Clean Separated Monorepo Structure
 
 ```text
 event-booking-app/
@@ -98,7 +67,7 @@ event-booking-app/
 
 ---
 
-## ⚡ Tech Stack Details
+## Tech Stack Details
 
 | Layer | Technologies Used | Description |
 | :--- | :--- | :--- |
@@ -113,7 +82,7 @@ event-booking-app/
 
 ---
 
-## 🚀 Quick Start Guide
+## Quick Start Guide
 
 ### 1. Prerequisites
 - **Node.js** (v18.0 or newer)
@@ -201,7 +170,7 @@ Access the application in your browser at **`http://localhost:3001`**.
 
 ---
 
-## 👥 Pre-Seeded Demo Credentials
+## Pre-Seeded Demo Credentials
 
 Use the **1-Click Quick Fill** buttons in the Sign In modal to test both roles:
 
@@ -212,38 +181,38 @@ Use the **1-Click Quick Fill** buttons in the Sign In modal to test both roles:
 
 ---
 
-## 🔌 REST API Reference
+## REST API Reference
 
-### 🔐 Authentication (`/api/auth`)
+### Authentication (`/api/auth`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `POST` | `/api/auth/register` | Public | Register new account (`fullName`, `email`, `password`, `role`) |
 | `POST` | `/api/auth/login` | Public | Authenticate user & issue signed JWT token |
 | `GET` | `/api/auth/me` | Protected | Fetch authenticated user profile |
 
-### 🎪 Events (`/api/events`)
+### Events (`/api/events`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/events` | Public | List all events (supports `?category=` & `?search=`) |
 | `GET` | `/api/events/:id` | Public | Get details for a single event |
-| `POST` | `/api/events` | Organizer | Publish new event to PostgreSQL database |
+| `POST` | `/api/events` | Organizer | Publish new event to database |
 | `DELETE` | `/api/events/:id` | Organizer | Delete an event |
 
-### 🎟️ Bookings (`/api/bookings`)
+### Bookings (`/api/bookings`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/bookings` | Protected | Reserve tickets, decrement seats in PostgreSQL, generate digital pass |
+| `POST` | `/api/bookings` | Protected | Reserve tickets, decrement seats, generate digital pass |
 | `GET` | `/api/bookings/my` | Protected | List all passes reserved by the authenticated user |
 | `DELETE` | `/api/bookings/:id` | Protected | Cancel booking and restore available seats |
 
-### 🩺 Health & Diagnostic (`/api/health`)
+### Health & Diagnostic (`/api/health`)
 | Method | Endpoint | Access | Description |
 | :--- | :--- | :--- | :--- |
 | `GET` | `/api/health` | Public | System status, ORM state, and database connectivity diagnostic |
 
 ---
 
-## 💎 Key Features Highlight
+## Key Features Highlight
 
 1. **Role-Based Access Control (RBAC)**: Secure routes protected with JWT verification and `requireOrganizer` middleware.
 2. **Multi-Tier Ticketing**:
@@ -254,8 +223,3 @@ Use the **1-Click Quick Fill** buttons in the Sign In modal to test both roles:
 4. **Interactive Payment Gateways**: Simulated Razorpay modal supporting UPI apps (GPay, PhonePe, Paytm, BHIM), Cards, Netbanking, plus 1-Click Free Presentation Demo mode.
 5. **Transactional Inventory**: Automatic seat decrementing upon booking and automatic seat restitution upon cancellation.
 6. **Unified Monorepo Architecture**: Clean separation of frontend and backend workspaces with root orchestration scripts.
-
----
-
-## 📜 License
-Distributed under the MIT License. Built with ❤️ for developers and event organizers.
