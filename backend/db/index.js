@@ -10,7 +10,7 @@ const connectionString = process.env.DATABASE_URL || 'postgresql://postgres:post
 const pool = new Pool({
     connectionString,
     ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
-    connectionTimeoutMillis: 3000
+    connectionTimeoutMillis: 10000
 });
 
 const db = drizzle(pool, { schema });

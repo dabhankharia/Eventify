@@ -43,6 +43,10 @@ const frontendDistPath = path.join(__dirname, '..', 'frontend', 'dist');
 if (fs.existsSync(frontendDistPath)) {
     app.use(express.static(frontendDistPath));
     app.get('*', (req, res) => {
+        // Return 404 JSON for unmatched API routes instead of index.html
+        if (req.path.startsWith('/api')) {
+            return res.status(404).json({ success: false, message: 'API route not found' });
+        }
         res.sendFile(path.join(frontendDistPath, 'index.html'));
     });
 }
