@@ -103,8 +103,13 @@ async function seed() {
         console.log('✓ Database seeded successfully!');
     } catch (err) {
         console.error('Seed error:', err);
+        throw err; // re-throw so the caller (API route) can catch it
     } finally {
-        await pool.end();
+        // Only close the pool when running standalone (node seed.js)
+        // When called as a module by the API route, the server needs the pool open
+        if (require.main === module) {
+            await pool.end();
+        }
     }
 }
 
