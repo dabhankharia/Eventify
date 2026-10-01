@@ -12,7 +12,7 @@ import PassModal from './components/PassModal';
 import ToastContainer from './components/Toast';
 
 function MainApp() {
-    const { currentUser } = useAuth();
+    const { currentUser, verifyAccount } = useAuth();
 
     // App state
     const [activeTab, setActiveTab] = useState('explore');
@@ -44,6 +44,29 @@ function MainApp() {
             setToasts((prev) => prev.filter((t) => t.id !== id));
         }, 3500);
     };
+
+    // Auto-detect confirmation link query parameters in URL (?verify_token=...)
+    useEffect(() => {
+        const params = new URLSearchParams(window.location.search);
+        const token = params.get('verify_token');
+        const verifiedFlag = params.get('verified');
+        const name = params.get('name');
+
+        if (token) {
+            verifyAccount(token).then((res) => {
+                if (res.success) {
+                    showToast(`🎉 Registration finalized! Welcome${res.user?.fullName ? ', ' + res.user.fullName : ''}!`, 'success');
+                } else {
+                    showToast(res.message, 'error');
+                }
+                // Clean URL parameters cleanly
+                window.history.replaceState({}, document.title, window.location.pathname);
+            });
+        } else if (verifiedFlag === 'success') {
+            showToast(`🎉 Registration confirmed successfully! Welcome to Eventify${name ? ', ' + decodeURIComponent(name) : ''}!`, 'success');
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }, [verifyAccount]);
 
     // Load events from API (with search and category)
     const fetchEvents = useCallback(async () => {

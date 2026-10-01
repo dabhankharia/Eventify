@@ -1,0 +1,9 @@
+{
+  "watch": ["server.js", "controllers", "routes", "services", "db", "middleware"],
+  "ext": "js,json",
+  "ignore": ["node_modules", "drizzle", "*.log"],
+  "exec": "node server.js",
+  "env": {
+    "NODE_ENV": "development"
+  }
+}

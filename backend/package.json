@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "dev": "node server.js",
+    "dev": "nodemon",
     "db:push": "drizzle-kit push",
     "db:seed": "node db/seed.js",
     "db:studio": "drizzle-kit studio",
@@ -18,9 +18,13 @@
     "drizzle-orm": "^0.45.3",
     "express": "^4.22.3",
     "jsonwebtoken": "^9.0.3",
-    "pg": "^8.23.0"
+    "nodemailer": "^10.0.13",
+    "pg": "^8.23.0",
+    "qrcode": "^1.5.4",
+    "twilio": "^6.1.2"
   },
   "devDependencies": {
-    "drizzle-kit": "^0.31.11"
+    "drizzle-kit": "^0.31.11",
+    "nodemon": "^3.1.14"
   }
 }

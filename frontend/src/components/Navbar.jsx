@@ -61,7 +61,7 @@ export default function Navbar({ activeTab, setActiveTab, bookingsCount, openAut
                 </button>
             </nav>
 
-            <div className="nav-auth-area">
+            <div className="nav-auth-area" style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {!currentUser ? (
                     <button className="btn-signin-nav" onClick={() => openAuthModal('login')}>
                         <User size={18} />

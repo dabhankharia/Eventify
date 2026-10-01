@@ -1,6 +1,8 @@
 const { eq, desc, and } = require('drizzle-orm');
 const { db, schema, isDbConnected } = require('../db');
 const { findEventById, updateEventSeats } = require('./eventController');
+const { findUserById } = require('./authController');
+const notificationService = require('../services/notificationService');
 const { bookings, events } = schema;
 
 // In-memory fallback bookings store
@@ -102,9 +104,24 @@ async function createBooking(req, res) {
             eventLocation: event.location
         };
 
+        // Asynchronously dispatch Email notification
+        findUserById(req.user.id).then(userRecord => {
+            const recipient = {
+                fullName: userRecord?.fullName || req.user.fullName,
+                email: userRecord?.email || req.user.email
+            };
+            return notificationService.sendBookingNotification({
+                recipient,
+                booking: responseBooking,
+                event
+            });
+        }).catch(notifErr => {
+            console.warn('Could not dispatch booking confirmation notification:', notifErr.message);
+        });
+
         return res.status(201).json({
             success: true,
-            message: 'Ticket successfully booked on Eventify!',
+            message: 'Ticket successfully booked on Eventify! Confirmation email sent.',
             booking: responseBooking
         });
     } catch (err) {
@@ -211,9 +228,24 @@ async function cancelBooking(req, res) {
             await updateEventSeats(event.id, event.availableSeats + targetBooking.quantity);
         }
 
+        // Asynchronously dispatch Email cancellation notification
+        findUserById(req.user.id).then(userRecord => {
+            const recipient = {
+                fullName: userRecord?.fullName || req.user.fullName,
+                email: userRecord?.email || req.user.email
+            };
+            return notificationService.sendCancellationNotification({
+                recipient,
+                booking: targetBooking,
+                event
+            });
+        }).catch(notifErr => {
+            console.warn('Could not dispatch cancellation notification:', notifErr.message);
+        });
+
         return res.json({
             success: true,
-            message: 'Booking cancelled and seats restored to event inventory.'
+            message: 'Booking cancelled and seats restored to event inventory. Cancellation email sent.'
         });
     } catch (err) {
         console.error('cancelBooking error:', err);

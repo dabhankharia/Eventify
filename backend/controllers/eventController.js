@@ -1,5 +1,6 @@
 const { eq, ilike, or, desc } = require('drizzle-orm');
 const { db, schema, isDbConnected } = require('../db');
+const notificationService = require('../services/notificationService');
 const { events } = schema;
 
 // In-memory fallback events
@@ -212,9 +213,21 @@ async function createEvent(req, res) {
             memoryEvents.unshift(newEvent);
         }
 
+        // Asynchronously dispatch Email notification to Organizer
+        const recipient = {
+            fullName: req.user.fullName,
+            email: req.user.email
+        };
+        notificationService.sendEventOrganizedNotification({
+            recipient,
+            event: newEvent
+        }).catch(notifErr => {
+            console.warn('Could not dispatch event organized notification:', notifErr.message);
+        });
+
         return res.status(201).json({
             success: true,
-            message: 'Event published successfully to Eventify!',
+            message: 'Event published successfully to Eventify! Confirmation email sent.',
             event: newEvent
         });
     } catch (err) {

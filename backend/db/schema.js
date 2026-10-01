@@ -1,12 +1,16 @@
-const { pgTable, varchar, text, integer, timestamp } = require('drizzle-orm/pg-core');
+const { pgTable, varchar, text, integer, timestamp, boolean } = require('drizzle-orm/pg-core');
 
 // 1. Users Table (Authentication & RBAC)
 const users = pgTable('users', {
     id: varchar('id', { length: 64 }).primaryKey(),
     fullName: varchar('full_name', { length: 255 }).notNull(),
-    email: varchar('email', { length: 255 }).notNull().unique(),
+    email: varchar('email', { length: 255 }),
+    phoneNumber: varchar('phone_number', { length: 50 }),
     passwordHash: text('password_hash').notNull(),
     role: varchar('role', { length: 50 }).notNull().default('Attendee'),
+    isVerified: boolean('is_verified').default(false).notNull(),
+    verificationToken: text('verification_token'),
+    verificationExpires: timestamp('verification_expires'),
     createdAt: timestamp('created_at').defaultNow().notNull()
 });
 
