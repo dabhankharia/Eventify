@@ -1,3 +1,5 @@
+const crypto = require('crypto');
+const Razorpay = require('razorpay');
 const { eq, desc, and } = require('drizzle-orm');
 const { db, schema, isDbConnected } = require('../db');
 const { findEventById, updateEventSeats } = require('./eventController');
@@ -8,7 +10,260 @@ const { bookings, events } = schema;
 // In-memory fallback bookings store
 const memoryBookings = [];
 
-// POST /api/bookings (Protected - Authenticated Users Only)
+// Initialize Razorpay SDK instance
+function getRazorpayInstance() {
+    const keyId = process.env.RAZORPAY_KEY_ID;
+    const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+    if (keyId && keySecret && !keyId.includes('your_')) {
+        return new Razorpay({
+            key_id: keyId,
+            key_secret: keySecret
+        });
+    }
+    return null;
+}
+
+// POST /api/bookings/create-order (Protected)
+// Creates a real Razorpay Order via SDK
+async function createRazorpayOrder(req, res) {
+    try {
+        const { eventId, ticketTier, quantity } = req.body;
+
+        if (!eventId || !quantity || quantity < 1) {
+            return res.status(400).json({
+                success: false,
+                message: 'Event ID and a valid ticket quantity are required.'
+            });
+        }
+
+        const event = await findEventById(eventId);
+        if (!event) {
+            return res.status(404).json({
+                success: false,
+                message: 'Target event does not exist.'
+            });
+        }
+
+        const qty = parseInt(quantity, 10);
+        if (event.availableSeats < qty) {
+            return res.status(400).json({
+                success: false,
+                message: `Only ${event.availableSeats} seats remaining for this event.`
+            });
+        }
+
+        // Price Multipliers
+        let multiplier = 1.0;
+        if (ticketTier === 'VIP Pass') multiplier = 1.6;
+        if (ticketTier === 'Early Bird') multiplier = 0.85;
+
+        const pricePerTicket = Math.round(event.price * multiplier);
+        const totalPrice = pricePerTicket * qty;
+        const amountInPaise = totalPrice * 100; // Razorpay requires amount in paise (1 INR = 100 paise)
+
+        const rzp = getRazorpayInstance();
+
+        if (rzp) {
+            const receiptId = 'rcpt_' + Date.now().toString(36);
+            const order = await rzp.orders.create({
+                amount: amountInPaise,
+                currency: 'INR',
+                receipt: receiptId,
+                notes: {
+                    eventId: event.id,
+                    eventTitle: event.title,
+                    userId: req.user.id,
+                    ticketTier: ticketTier || 'General Admission',
+                    quantity: qty
+                }
+            });
+
+            return res.json({
+                success: true,
+                isLiveSdk: true,
+                keyId: process.env.RAZORPAY_KEY_ID,
+                orderId: order.id,
+                amount: order.amount,
+                currency: order.currency,
+                event: {
+                    id: event.id,
+                    title: event.title,
+                    price: pricePerTicket,
+                    totalPrice
+                },
+                user: {
+                    name: req.user.fullName,
+                    email: req.user.email
+                }
+            });
+        } else {
+            // Fallback simulated order when Razorpay test keys are not yet configured in .env
+            const mockOrderId = 'order_sim_' + Math.floor(100000 + Math.random() * 900000);
+            return res.json({
+                success: true,
+                isLiveSdk: false,
+                keyId: 'rzp_test_simulated_key',
+                orderId: mockOrderId,
+                amount: amountInPaise,
+                currency: 'INR',
+                event: {
+                    id: event.id,
+                    title: event.title,
+                    price: pricePerTicket,
+                    totalPrice
+                },
+                user: {
+                    name: req.user.fullName,
+                    email: req.user.email
+                }
+            });
+        }
+    } catch (err) {
+        console.error('createRazorpayOrder error:', err);
+        return res.status(500).json({
+            success: false,
+            message: 'Failed to create payment order. ' + (err.error?.description || err.message)
+        });
+    }
+}
+
+// POST /api/bookings/verify-payment (Protected)
+// Verifies HMAC SHA-256 signature and confirms ticket booking
+async function verifyRazorpayPayment(req, res) {
+    try {
+        const {
+            eventId,
+            ticketTier,
+            quantity,
+            razorpay_order_id,
+            razorpay_payment_id,
+            razorpay_signature,
+            paymentMethod = 'Razorpay Gateway'
+        } = req.body;
+
+        const keySecret = process.env.RAZORPAY_KEY_SECRET;
+
+        // Verify cryptographic signature if live Razorpay keys are set
+        if (keySecret && !keySecret.includes('your_') && razorpay_signature) {
+            const body = razorpay_order_id + '|' + razorpay_payment_id;
+            const expectedSignature = crypto
+                .createHmac('sha256', keySecret)
+                .update(body.toString())
+                .digest('hex');
+
+            if (expectedSignature !== razorpay_signature) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Payment verification failed. Invalid cryptographic signature.'
+                });
+            }
+        }
+
+        const event = await findEventById(eventId);
+        if (!event) {
+            return res.status(404).json({ success: false, message: 'Event not found.' });
+        }
+
+        const qty = parseInt(quantity, 10);
+        if (event.availableSeats < qty) {
+            return res.status(400).json({
+                success: false,
+                message: `Seats no longer available (only ${event.availableSeats} remaining).`
+            });
+        }
+
+        // Deduct seats
+        const newAvailableSeats = event.availableSeats - qty;
+        await updateEventSeats(event.id, newAvailableSeats);
+
+        // Price Multipliers
+        let multiplier = 1.0;
+        if (ticketTier === 'VIP Pass') multiplier = 1.6;
+        if (ticketTier === 'Early Bird') multiplier = 0.85;
+
+        const pricePerTicket = Math.round(event.price * multiplier);
+        const totalPrice = pricePerTicket * qty;
+
+        const newBooking = {
+            id: 'bk_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+            ticketCode: 'EVENTIFY-' + Math.floor(100000 + Math.random() * 900000),
+            userId: req.user.id,
+            eventId: event.id,
+            ticketTier: ticketTier || 'General Admission',
+            quantity: qty,
+            pricePerTicket,
+            totalPrice,
+            paymentMethod: paymentMethod,
+            paymentId: razorpay_payment_id || 'pay_rzp_' + Math.floor(100000 + Math.random() * 900000),
+            status: 'CONFIRMED',
+            bookedAt: new Date()
+        };
+
+        if (isDbConnected()) {
+            try {
+                await db.insert(bookings).values(newBooking);
+            } catch (dbErr) {
+                console.warn('Could not insert booking to PostgreSQL, caching in memory:', dbErr.message);
+                memoryBookings.unshift({
+                    ...newBooking,
+                    userName: req.user.fullName,
+                    userEmail: req.user.email,
+                    eventTitle: event.title,
+                    eventDate: event.date,
+                    eventTime: event.time,
+                    eventLocation: event.location
+                });
+            }
+        } else {
+            memoryBookings.unshift({
+                ...newBooking,
+                userName: req.user.fullName,
+                userEmail: req.user.email,
+                eventTitle: event.title,
+                eventDate: event.date,
+                eventTime: event.time,
+                eventLocation: event.location
+            });
+        }
+
+        const responseBooking = {
+            ...newBooking,
+            userName: req.user.fullName,
+            userEmail: req.user.email,
+            eventTitle: event.title,
+            eventDate: event.date,
+            eventTime: event.time,
+            eventLocation: event.location
+        };
+
+        // Asynchronously dispatch Email notification with embedded QR Code
+        findUserById(req.user.id).then(userRecord => {
+            const recipient = {
+                fullName: userRecord?.fullName || req.user.fullName,
+                email: userRecord?.email || req.user.email
+            };
+            return notificationService.sendBookingNotification({
+                recipient,
+                booking: responseBooking,
+                event
+            });
+        }).catch(notifErr => {
+            console.warn('Could not dispatch booking confirmation notification:', notifErr.message);
+        });
+
+        return res.status(201).json({
+            success: true,
+            message: 'Payment verified and ticket booked successfully! Confirmation email with QR pass sent.',
+            booking: responseBooking
+        });
+    } catch (err) {
+        console.error('verifyRazorpayPayment error:', err);
+        return res.status(500).json({ success: false, message: 'Payment verification failed.' });
+    }
+}
+
+// POST /api/bookings (Protected - Direct Booking / Demo Mode)
 async function createBooking(req, res) {
     try {
         const { eventId, ticketTier, quantity, paymentMethod, paymentId } = req.body;
@@ -93,7 +348,6 @@ async function createBooking(req, res) {
             });
         }
 
-        // Return combined details for immediate frontend rendering (including QR code payload)
         const responseBooking = {
             ...newBooking,
             userName: req.user.fullName,
@@ -254,6 +508,8 @@ async function cancelBooking(req, res) {
 }
 
 module.exports = {
+    createRazorpayOrder,
+    verifyRazorpayPayment,
     createBooking,
     getUserBookings,
     cancelBooking

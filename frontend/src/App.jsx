@@ -10,6 +10,7 @@ import BookingModal from './components/BookingModal';
 import RazorpayModal from './components/RazorpayModal';
 import PassModal from './components/PassModal';
 import ToastContainer from './components/Toast';
+import { launchRazorpayPayment } from './utils/razorpay';
 
 function MainApp() {
     const { currentUser, verifyAccount } = useAuth();
@@ -164,18 +165,91 @@ function MainApp() {
         }
     };
 
-    // Handle Open Razorpay Modal
-    const handleProceedToRazorpay = (data) => {
+    // Handle Open Razorpay Checkout (Real SDK with fallback simulator)
+    const handleProceedToRazorpay = async (data) => {
         setIsBookingModalOpen(false);
-        setCheckoutData(data);
-        setIsRazorpayModalOpen(true);
+        const token = localStorage.getItem('nexus_jwt_token');
+
+        try {
+            showToast('Initiating Razorpay payment order...', 'info');
+            const orderRes = await fetch('/api/bookings/create-order', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({
+                    eventId: data.event.id,
+                    ticketTier: data.ticketTier,
+                    quantity: data.quantity
+                })
+            });
+
+            const orderData = await orderRes.json();
+            if (!orderRes.ok || !orderData.success) {
+                showToast(orderData.message || 'Could not initiate Razorpay order.', 'error');
+                return;
+            }
+
+            if (orderData.isLiveSdk) {
+                // Real Razorpay SDK popup
+                launchRazorpayPayment({
+                    orderData,
+                    user: currentUser,
+                    onSuccess: async (rzpResponse) => {
+                        showToast('Verifying payment signature...', 'info');
+                        try {
+                            const verifyRes = await fetch('/api/bookings/verify-payment', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'Authorization': `Bearer ${token}`
+                                },
+                                body: JSON.stringify({
+                                    eventId: data.event.id,
+                                    ticketTier: data.ticketTier,
+                                    quantity: data.quantity,
+                                    razorpay_order_id: rzpResponse.razorpay_order_id,
+                                    razorpay_payment_id: rzpResponse.razorpay_payment_id,
+                                    razorpay_signature: rzpResponse.razorpay_signature,
+                                    paymentMethod: 'Razorpay Gateway (Test Mode)'
+                                })
+                            });
+
+                            const verifyData = await verifyRes.json();
+                            if (verifyRes.ok && verifyData.success) {
+                                showToast('🎉 Razorpay Payment Verified! Digital Pass Generated.', 'success');
+                                setActivePass(verifyData.booking);
+                                setIsPassModalOpen(true);
+                                fetchEvents();
+                                fetchMyBookings();
+                            } else {
+                                showToast(verifyData.message || 'Signature verification failed.', 'error');
+                            }
+                        } catch {
+                            showToast('Error verifying payment on server.', 'error');
+                        }
+                    },
+                    onFailure: (errMsg) => {
+                        showToast(errMsg, 'error');
+                    }
+                });
+            } else {
+                // Fallback simulation modal when Razorpay keys are not yet configured in .env
+                setCheckoutData(data);
+                setIsRazorpayModalOpen(true);
+            }
+        } catch (err) {
+            console.error('Razorpay initialization error:', err);
+            showToast('Error connecting to Razorpay service.', 'error');
+        }
     };
 
-    // Handle Complete Razorpay Simulated Checkout
+    // Handle Complete Razorpay Simulated Checkout (Fallback mode)
     const handleCompleteRazorpay = async (paymentMethodLabel, paymentId) => {
         const token = localStorage.getItem('nexus_jwt_token');
         try {
-            const res = await fetch('/api/bookings', {
+            const res = await fetch('/api/bookings/verify-payment', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
@@ -185,8 +259,8 @@ function MainApp() {
                     eventId: checkoutData.event.id,
                     ticketTier: checkoutData.ticketTier,
                     quantity: checkoutData.quantity,
-                    paymentMethod: paymentMethodLabel,
-                    paymentId
+                    razorpay_payment_id: paymentId,
+                    paymentMethod: paymentMethodLabel
                 })
             });
 
