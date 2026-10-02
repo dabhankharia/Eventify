@@ -15,14 +15,16 @@ async function seed() {
                 fullName: 'Dhruvil Bhankharia',
                 email: 'dhruvil@example.com',
                 passwordHash: demoPasswordHash,
-                role: 'Attendee'
+                role: 'Attendee',
+                isVerified: true
             },
             {
                 id: 'usr_organizer_1',
                 fullName: 'Bhankharia Dhruvil',
                 email: 'bhankharia.dhruvil@eventify.in',
                 passwordHash: demoPasswordHash,
-                role: 'Organizer'
+                role: 'Organizer',
+                isVerified: true
             }
         ];
 
@@ -92,7 +94,10 @@ async function seed() {
 
         console.log('Inserting seed users...');
         for (const u of initialUsers) {
-            await db.insert(users).values(u).onConflictDoNothing();
+            await db.insert(users).values(u).onConflictDoUpdate({
+                target: users.id,
+                set: { isVerified: true }  // ensure demo accounts are always verified
+            });
         }
 
         console.log('Inserting seed events...');
