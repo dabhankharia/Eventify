@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
-const { eq } = require('drizzle-orm');
+const { eq, or } = require('drizzle-orm');
 const { db, schema, isDbConnected } = require('../db');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
 const notificationService = require('../services/notificationService');
@@ -106,41 +106,62 @@ async function register(req, res) {
 
         // Check duplicate email
         const existingUser = await findUserByEmail(cleanEmailVal);
-        if (existingUser && existingUser.isVerified) {
-            return res.status(409).json({
-                success: false,
-                message: 'An account with this email address already exists. Please sign in.'
-            });
-        }
+        if (existingUser) {
+            if (existingUser.isVerified) {
+                return res.status(409).json({
+                    success: false,
+                    message: 'An account with this email address already exists. Please sign in.'
+                });
+            }
 
-        // Generate verification token and expiration (24h)
-        const verificationToken = crypto.randomBytes(32).toString('hex');
-        const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+            // Existing unverified user: update password and token rather than throwing duplicate key violation
+            if (isDbConnected()) {
+                try {
+                    await db.update(users)
+                        .set({
+                            fullName: fullName.trim(),
+                            passwordHash,
+                            role: role === 'Organizer' ? 'Organizer' : 'Attendee',
+                            verificationToken,
+                            verificationExpires
+                        })
+                        .where(or(eq(users.id, existingUser.id), eq(users.email, cleanEmailVal)));
+                } catch (dbErr) {
+                    console.warn('Could not update unverified user in PostgreSQL:', dbErr.message);
+                }
+            }
 
-        const salt = await bcrypt.genSalt(10);
-        const passwordHash = await bcrypt.hash(password, salt);
-
-        const newUser = {
-            id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
-            fullName: fullName.trim(),
-            email: cleanEmailVal,
-            passwordHash,
-            role: role === 'Organizer' ? 'Organizer' : 'Attendee',
-            isVerified: false,
-            verificationToken,
-            verificationExpires,
-            createdAt: new Date()
-        };
-
-        if (isDbConnected()) {
-            try {
-                await db.insert(users).values(newUser);
-            } catch (dbErr) {
-                console.warn('Could not insert to PostgreSQL, persisting to memory cache:', dbErr.message);
-                memoryUsers.push(newUser);
+            const memUser = memoryUsers.find(u => u.email && u.email.toLowerCase() === cleanEmailVal);
+            if (memUser) {
+                memUser.fullName = fullName.trim();
+                memUser.passwordHash = passwordHash;
+                memUser.role = role === 'Organizer' ? 'Organizer' : 'Attendee';
+                memUser.verificationToken = verificationToken;
+                memUser.verificationExpires = verificationExpires;
             }
         } else {
-            memoryUsers.push(newUser);
+            const newUser = {
+                id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
+                fullName: fullName.trim(),
+                email: cleanEmailVal,
+                passwordHash,
+                role: role === 'Organizer' ? 'Organizer' : 'Attendee',
+                isVerified: false,
+                verificationToken,
+                verificationExpires,
+                createdAt: new Date()
+            };
+
+            if (isDbConnected()) {
+                try {
+                    await db.insert(users).values(newUser);
+                } catch (dbErr) {
+                    console.warn('Could not insert to PostgreSQL, persisting to memory cache:', dbErr.message);
+                    memoryUsers.push(newUser);
+                }
+            } else {
+                memoryUsers.push(newUser);
+            }
         }
 
         // Determine base URL for confirmation link
@@ -207,20 +228,22 @@ async function verifyRegistration(req, res) {
         // Finalize registration
         if (isDbConnected()) {
             try {
-                await db.update(users)
+                const resUpdate = await db.update(users)
                     .set({
                         isVerified: true,
                         verificationToken: null,
                         verificationExpires: null
                     })
-                    .where(eq(users.id, user.id));
+                    .where(or(eq(users.id, user.id), eq(users.email, user.email.toLowerCase().trim())))
+                    .returning();
+                console.log(`✅ [Eventify Auth] Verified user in PostgreSQL: ${user.email} (rows updated: ${resUpdate.length})`);
             } catch (dbErr) {
-                console.warn('DB error finalizing verification:', dbErr.message);
+                console.error('❌ DB error finalizing verification:', dbErr.message);
             }
         }
 
         // Also update memory record if present
-        const memUser = memoryUsers.find(u => u.id === user.id);
+        const memUser = memoryUsers.find(u => u.id === user.id || (u.email && u.email.toLowerCase() === user.email.toLowerCase()));
         if (memUser) {
             memUser.isVerified = true;
             memUser.verificationToken = null;
@@ -289,10 +312,10 @@ async function resendVerification(req, res) {
         if (isDbConnected()) {
             await db.update(users)
                 .set({ verificationToken: newToken, verificationExpires: newExpires })
-                .where(eq(users.id, user.id));
+                .where(or(eq(users.id, user.id), eq(users.email, user.email.toLowerCase().trim())));
         }
 
-        const memUser = memoryUsers.find(u => u.id === user.id);
+        const memUser = memoryUsers.find(u => u.id === user.id || (u.email && u.email.toLowerCase() === user.email.toLowerCase()));
         if (memUser) {
             memUser.verificationToken = newToken;
             memUser.verificationExpires = newExpires;
@@ -349,6 +372,8 @@ async function login(req, res) {
                 message: 'Invalid email or password.'
             });
         }
+
+        console.log(`[Eventify Login] Attempt for: ${user.email}, isVerified: ${user.isVerified}`);
 
         // Check verification status
         if (user.isVerified === false) {
