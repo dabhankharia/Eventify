@@ -1,31 +1,17 @@
-const nodemailer = require('nodemailer');
+const { Resend } = require('resend');
 const QRCode = require('qrcode');
 
 // -------------------------------------------------------------
-// EMAIL SERVICE CONFIGURATION
+// EMAIL SERVICE CONFIGURATION (Resend HTTP API — works on
+// Render free tier since it uses HTTPS port 443, not SMTP)
 // -------------------------------------------------------------
-let mailTransporter = null;
 
-function getMailTransporter() {
-    if (mailTransporter) return mailTransporter;
-
-    const host = process.env.SMTP_HOST;
-    const port = parseInt(process.env.SMTP_PORT, 10) || 587;
-    const user = process.env.SMTP_USER;
-    const pass = process.env.SMTP_PASS;
-
-    if (host && user && pass) {
-        mailTransporter = nodemailer.createTransport({
-            host,
-            port,
-            secure: port === 465,
-            auth: { user, pass }
-        });
-    } else {
-        mailTransporter = null;
-    }
-    return mailTransporter;
+function getResendClient() {
+    const apiKey = process.env.RESEND_API_KEY;
+    if (!apiKey) return null;
+    return new Resend(apiKey);
 }
+
 
 const DEMO_EMAILS = [
     'dhruvil@example.com',
@@ -38,39 +24,44 @@ function isDemoEmail(email) {
     return DEMO_EMAILS.includes(clean) || clean.endsWith('@example.com');
 }
 
-// Helper to send Email with rich HTML formatting & optional attachments (inline CID images)
+// Core send helper — all notification functions call this
 async function sendEmail({ to, subject, html, text, attachments = [] }) {
     if (!to) return { success: false, message: 'No recipient provided' };
 
-    // Do not attempt to deliver emails to non-existent demo attendee/organizer addresses
+    // Skip delivery for non-existent demo addresses
     if (isDemoEmail(to)) {
-        console.log(`ℹ️ [Eventify Mail] Skipping email delivery for demo address: ${to}`);
+        console.log(`ℹ️ [Eventify Mail] Skipping demo address: ${to}`);
         return { success: true, skipped: true };
     }
 
-    const fromAddress = process.env.EMAIL_FROM || '"Eventify" <no-reply@eventify.in>';
-    const transporter = getMailTransporter();
+    const fromAddr = process.env.EMAIL_FROM || '"Eventify" <onboarding@resend.dev>';
+    const client = getResendClient();
 
-    if (transporter) {
+    if (client) {
         try {
-            const info = await transporter.sendMail({
-                from: fromAddress,
-                to,
-                subject,
-                text,
-                html,
-                attachments
-            });
-            console.log(`📧 [Eventify Mail] Email successfully delivered to ${to}. MessageId: ${info.messageId}`);
-            return { success: true, messageId: info.messageId };
+            const payload = { from: fromAddr, to: [to], subject, text, html };
+
+            // Resend supports inline attachments for QR codes
+            if (attachments.length > 0) {
+                payload.attachments = attachments.map(a => ({
+                    filename: a.filename,
+                    content:  a.content   // Buffer
+                }));
+            }
+
+            const { data, error } = await client.emails.send(payload);
+            if (error) throw new Error(error.message);
+
+            console.log(`📧 [Eventify Mail] Delivered to ${to}. ID: ${data.id}`);
+            return { success: true, messageId: data.id };
         } catch (err) {
-            console.warn(`[Eventify Mail] Delivery fallback for ${to}: ${err.message}`);
+            console.warn(`[Eventify Mail] Delivery failed for ${to}: ${err.message}`);
             return { success: false, error: err.message };
         }
     } else {
-        // Dev log
-        console.log(`[Eventify Mail Service] (SMTP not configured — preview):`);
-        console.log(`   To: ${to}`);
+        // Dev-preview mode — RESEND_API_KEY not set
+        console.log('[Eventify Mail] (Resend not configured — preview mode):');
+        console.log(`   To:      ${to}`);
         console.log(`   Subject: ${subject}`);
         return { success: true, simulated: true };
     }
@@ -94,7 +85,7 @@ async function sendRegistrationConfirmation({ recipient, verificationLink }) {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; border-radius: 16px; overflow: hidden; border: 1px solid #1e293b;">
         <div style="background: linear-gradient(135deg, #6366f1 0%, #a855f7 100%); padding: 32px 24px; text-align: center;">
             <h1 style="margin: 0; font-size: 26px; color: #ffffff; letter-spacing: -0.5px;">Eventify</h1>
-            <p style="margin: 6px 0 0 0; color: #e0e7ff; font-size: 14px;">Next-Gen Event Booking & Management</p>
+            <p style="margin: 6px 0 0 0; color: #e0e7ff; font-size: 14px;">Next-Gen Event Booking &amp; Management</p>
         </div>
         <div style="padding: 32px 24px;">
             <h2 style="margin-top: 0; font-size: 20px; color: #ffffff;">Finalize Your Registration</h2>
@@ -104,7 +95,7 @@ async function sendRegistrationConfirmation({ recipient, verificationLink }) {
             </p>
             <div style="text-align: center; margin: 32px 0;">
                 <a href="${verificationLink}" style="background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%); color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 8px; font-weight: 600; font-size: 15px; display: inline-block; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.4);">
-                    Confirm My Registration & Activate
+                    Confirm My Registration &amp; Activate
                 </a>
             </div>
             <p style="color: #64748b; font-size: 13px; line-height: 1.5;">
@@ -157,13 +148,9 @@ async function sendBookingNotification({ recipient, booking, event }) {
             type: 'png',
             margin: 2,
             width: 260,
-            color: {
-                dark: '#0f172a',
-                light: '#ffffff'
-            }
+            color: { dark: '#0f172a', light: '#ffffff' }
         });
 
-        // Add inline CID attachment for full compatibility with Gmail, Outlook, Apple Mail
         attachments.push({
             filename: `eventify-pass-${booking.ticketCode}.png`,
             content: qrBuffer,
@@ -174,16 +161,12 @@ async function sendBookingNotification({ recipient, booking, event }) {
             errorCorrectionLevel: 'H',
             margin: 2,
             width: 260,
-            color: {
-                dark: '#0f172a',
-                light: '#ffffff'
-            }
+            color: { dark: '#0f172a', light: '#ffffff' }
         });
     } catch (qrErr) {
         console.warn('QR code generation error:', qrErr.message);
     }
 
-    // Use inline CID image tag (fallback to dataUrl if CID is not rendered by client)
     const qrImageSrc = qrBuffer ? 'cid:ticketqrcode' : (qrDataUrl || '');
 
     const html = `
@@ -300,7 +283,7 @@ async function sendCancellationNotification({ recipient, booking, event }) {
             <div style="background: #1e293b; border-radius: 12px; padding: 20px; border-left: 4px solid #ef4444; margin: 20px 0;">
                 <h3 style="margin: 0 0 10px 0; color: #f8fafc; font-size: 18px;">${event?.title || 'Event Booking'}</h3>
                 <p style="margin: 4px 0; color: #94a3b8; font-size: 14px;">🎟️ <strong>Cancelled Pass:</strong> ${booking.ticketCode}</p>
-                <p style="margin: 4px 0; color: #94a3b8; font-size: 14px;">👥 <strong>Seats Restored:</strong> ${booking.quantity} Pass(es)</p>
+                <p style="margin: 4px 0; color: #94a3b8; font-size: 14px;">👥 <strong>Seats Released:</strong> ${booking.quantity} Pass(es)</p>
                 <p style="margin: 4px 0; color: #94a3b8; font-size: 14px;">💳 <strong>Amount:</strong> ₹${booking.totalPrice.toLocaleString('en-IN')}</p>
             </div>
             <p style="color: #64748b; font-size: 13px;">
