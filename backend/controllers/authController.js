@@ -104,8 +104,17 @@ async function register(req, res) {
 
         const cleanEmailVal = email.trim().toLowerCase();
 
+        // Generate verification token and expiration (24h)
+        const verificationToken = crypto.randomBytes(32).toString('hex');
+        const verificationExpires = new Date(Date.now() + 24 * 60 * 60 * 1000);
+
+        const salt = await bcrypt.genSalt(10);
+        const passwordHash = await bcrypt.hash(password, salt);
+
         // Check duplicate email
         const existingUser = await findUserByEmail(cleanEmailVal);
+        let userRecord = null;
+
         if (existingUser) {
             if (existingUser.isVerified) {
                 return res.status(409).json({
@@ -139,6 +148,14 @@ async function register(req, res) {
                 memUser.verificationToken = verificationToken;
                 memUser.verificationExpires = verificationExpires;
             }
+
+            userRecord = {
+                id: existingUser.id,
+                fullName: fullName.trim(),
+                email: cleanEmailVal,
+                role: role === 'Organizer' ? 'Organizer' : 'Attendee',
+                isVerified: false
+            };
         } else {
             const newUser = {
                 id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
@@ -162,6 +179,8 @@ async function register(req, res) {
             } else {
                 memoryUsers.push(newUser);
             }
+
+            userRecord = newUser;
         }
 
         // Determine base URL for confirmation link
@@ -173,8 +192,8 @@ async function register(req, res) {
         // Send Email confirmation link
         await notificationService.sendRegistrationConfirmation({
             recipient: {
-                fullName: newUser.fullName,
-                email: newUser.email
+                fullName: userRecord.fullName,
+                email: userRecord.email
             },
             verificationLink
         });
@@ -182,13 +201,13 @@ async function register(req, res) {
         return res.status(201).json({
             success: true,
             requiresVerification: true,
-            message: `Registration initiated! We sent a confirmation link to ${newUser.email}. Please click the link in your email to activate your account.`,
-            recipient: newUser.email,
+            message: `Registration initiated! We sent a confirmation link to ${userRecord.email}. Please click the link in your email to activate your account.`,
+            recipient: userRecord.email,
             user: {
-                id: newUser.id,
-                fullName: newUser.fullName,
-                email: newUser.email,
-                role: newUser.role,
+                id: userRecord.id,
+                fullName: userRecord.fullName,
+                email: userRecord.email,
+                role: userRecord.role,
                 isVerified: false
             }
         });
