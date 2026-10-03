@@ -1,17 +1,9 @@
-const { Resend } = require('resend');
 const QRCode = require('qrcode');
 
 // -------------------------------------------------------------
-// EMAIL SERVICE CONFIGURATION (Resend HTTP API — works on
+// EMAIL SERVICE CONFIGURATION (Brevo HTTP REST API — works on
 // Render free tier since it uses HTTPS port 443, not SMTP)
 // -------------------------------------------------------------
-
-function getResendClient() {
-    const apiKey = process.env.RESEND_API_KEY;
-    if (!apiKey) return null;
-    return new Resend(apiKey);
-}
-
 
 const DEMO_EMAILS = [
     'dhruvil@example.com',
@@ -24,7 +16,7 @@ function isDemoEmail(email) {
     return DEMO_EMAILS.includes(clean) || clean.endsWith('@example.com');
 }
 
-// Core send helper — all notification functions call this
+// Core send helper — sends transactional emails via Brevo REST API v3
 async function sendEmail({ to, subject, html, text, attachments = [] }) {
     if (!to) return { success: false, message: 'No recipient provided' };
 
@@ -34,33 +26,63 @@ async function sendEmail({ to, subject, html, text, attachments = [] }) {
         return { success: true, skipped: true };
     }
 
-    const fromAddr = process.env.EMAIL_FROM || '"Eventify" <onboarding@resend.dev>';
-    const client = getResendClient();
+    const apiKey = process.env.BREVO_API_KEY;
+    const senderEmail = process.env.BREVO_SENDER_EMAIL || 'dabhankharia@gmail.com';
+    const senderName = process.env.BREVO_SENDER_NAME || 'Eventify';
 
-    if (client) {
+    if (apiKey) {
         try {
-            const payload = { from: fromAddr, to: [to], subject, text, html };
+            const body = {
+                sender: {
+                    name: senderName,
+                    email: senderEmail
+                },
+                to: [
+                    { email: to }
+                ],
+                subject: subject,
+                htmlContent: html,
+                textContent: text || undefined
+            };
 
-            // Resend supports inline attachments for QR codes
+            // Format attachments for Brevo REST API (base64)
             if (attachments.length > 0) {
-                payload.attachments = attachments.map(a => ({
-                    filename: a.filename,
-                    content:  a.content   // Buffer
-                }));
+                body.attachment = attachments.map(a => {
+                    const contentBase64 = Buffer.isBuffer(a.content)
+                        ? a.content.toString('base64')
+                        : Buffer.from(a.content).toString('base64');
+                    return {
+                        name: a.filename || 'attachment.png',
+                        content: contentBase64
+                    };
+                });
             }
 
-            const { data, error } = await client.emails.send(payload);
-            if (error) throw new Error(error.message);
+            const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+                method: 'POST',
+                headers: {
+                    'accept': 'application/json',
+                    'api-key': apiKey,
+                    'content-type': 'application/json'
+                },
+                body: JSON.stringify(body)
+            });
 
-            console.log(`📧 [Eventify Mail] Delivered to ${to}. ID: ${data.id}`);
-            return { success: true, messageId: data.id };
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(data.message || `HTTP ${response.status}: ${JSON.stringify(data)}`);
+            }
+
+            console.log(`📧 [Eventify Mail] Delivered to ${to} via Brevo. Message ID: ${data.messageId}`);
+            return { success: true, messageId: data.messageId };
         } catch (err) {
-            console.warn(`[Eventify Mail] Delivery failed for ${to}: ${err.message}`);
+            console.warn(`[Eventify Mail] Brevo delivery failed for ${to}: ${err.message}`);
             return { success: false, error: err.message };
         }
     } else {
-        // Dev-preview mode — RESEND_API_KEY not set
-        console.log('[Eventify Mail] (Resend not configured — preview mode):');
+        // Dev-preview mode — BREVO_API_KEY not set
+        console.log('[Eventify Mail] (Brevo not configured — preview mode):');
         console.log(`   To:      ${to}`);
         console.log(`   Subject: ${subject}`);
         return { success: true, simulated: true };
@@ -167,7 +189,7 @@ async function sendBookingNotification({ recipient, booking, event }) {
         console.warn('QR code generation error:', qrErr.message);
     }
 
-    const qrImageSrc = qrBuffer ? 'cid:ticketqrcode' : (qrDataUrl || '');
+    const qrImageSrc = qrDataUrl || (qrBuffer ? 'cid:ticketqrcode' : '');
 
     const html = `
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; border-radius: 16px; overflow: hidden; border: 1px solid #1e293b;">
