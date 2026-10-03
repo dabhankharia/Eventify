@@ -41,6 +41,7 @@ async function seed() {
                 availableSeats: 85,
                 totalSeats: 300,
                 organizer: 'Eventify Tech India',
+                organizerId: null,
                 description: 'Join 2,000+ engineers, founders, and AI practitioners exploring autonomous agents, LLM architectures, and cloud automation.',
                 bannerGradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%)',
                 badge: 'Featured'
@@ -56,6 +57,7 @@ async function seed() {
                 availableSeats: 140,
                 totalSeats: 500,
                 organizer: 'Sunburn India Productions',
+                organizerId: null,
                 description: 'Experience immersive light installations, synthwave performances, and multi-stage electronic music sets on the beaches of Goa.',
                 bannerGradient: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%)',
                 badge: 'Popular'
@@ -71,6 +73,7 @@ async function seed() {
                 availableSeats: 18,
                 totalSeats: 100,
                 organizer: 'Venture India Network',
+                organizerId: null,
                 description: 'An exclusive round-table intensive for tech founders scaling SaaS products across India and global markets. Pitch clinics & VC speed-networking.',
                 bannerGradient: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
                 badge: 'Selling Fast'
@@ -85,7 +88,8 @@ async function seed() {
                 price: 499,
                 availableSeats: 45,
                 totalSeats: 150,
-                organizer: 'CodeCraft India Academy',
+                organizer: 'Bhankharia Dhruvil',
+                organizerId: 'usr_organizer_1', // Owned by demo organizer
                 description: 'Hands-on masterclass building resilient Node.js Express APIs, PostgreSQL with Drizzle ORM, JWT authentication layers, and React frontends.',
                 bannerGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)',
                 badge: 'Hands-On'
@@ -102,7 +106,10 @@ async function seed() {
 
         console.log('Inserting seed events...');
         for (const e of initialEvents) {
-            await db.insert(events).values(e).onConflictDoNothing();
+            await db.insert(events).values(e).onConflictDoUpdate({
+                target: events.id,
+                set: { organizer: e.organizer, organizerId: e.organizerId }
+            });
         }
 
         console.log('✓ Database seeded successfully!');

@@ -4,6 +4,7 @@ const eventController = require('../controllers/eventController');
 const { authenticateToken, requireOrganizer } = require('../middleware/authMiddleware');
 
 router.get('/', eventController.getAllEvents);
+router.get('/my', authenticateToken, requireOrganizer, eventController.getMyEvents);
 router.get('/:id', eventController.getEventById);
 router.post('/', authenticateToken, requireOrganizer, eventController.createEvent);
 router.delete('/:id', authenticateToken, requireOrganizer, eventController.deleteEvent);

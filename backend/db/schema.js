@@ -4,8 +4,7 @@ const { pgTable, varchar, text, integer, timestamp, boolean } = require('drizzle
 const users = pgTable('users', {
     id: varchar('id', { length: 64 }).primaryKey(),
     fullName: varchar('full_name', { length: 255 }).notNull(),
-    email: varchar('email', { length: 255 }),
-    phoneNumber: varchar('phone_number', { length: 50 }),
+    email: varchar('email', { length: 255 }).notNull().unique(),
     passwordHash: text('password_hash').notNull(),
     role: varchar('role', { length: 50 }).notNull().default('Attendee'),
     isVerified: boolean('is_verified').default(false).notNull(),
@@ -26,6 +25,7 @@ const events = pgTable('events', {
     availableSeats: integer('available_seats').notNull().default(100),
     totalSeats: integer('total_seats').notNull().default(100),
     organizer: varchar('organizer', { length: 255 }).notNull(),
+    organizerId: varchar('organizer_id', { length: 64 }),
     description: text('description').notNull(),
     bannerGradient: text('banner_gradient'),
     badge: varchar('badge', { length: 50 }).default('Upcoming'),

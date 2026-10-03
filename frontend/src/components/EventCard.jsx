@@ -1,10 +1,7 @@
 import React from 'react';
-import { Calendar, MapPin, Users, Trash2 } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Calendar, MapPin, Users } from 'lucide-react';
 
-export default function EventCard({ event, onBook, onDelete }) {
-    const { isOrganizer } = useAuth();
-
+export default function EventCard({ event, onBook }) {
     return (
         <div className="event-card">
             <div
@@ -39,24 +36,13 @@ export default function EventCard({ event, onBook, onDelete }) {
                         <span className="evt-price-val">₹{Number(event.price).toLocaleString('en-IN')}</span>
                     </div>
 
-                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        {isOrganizer && (
-                            <button
-                                className="btn-delete-evt"
-                                onClick={() => onDelete(event.id)}
-                                title="Delete event"
-                            >
-                                <Trash2 size={16} />
-                            </button>
-                        )}
-                        <button
-                            className="btn-book-now"
-                            onClick={() => onBook(event)}
-                            disabled={event.availableSeats <= 0}
-                        >
-                            {event.availableSeats > 0 ? 'Book Ticket' : 'Sold Out'}
-                        </button>
-                    </div>
+                    <button
+                        className="btn-book-now"
+                        onClick={() => onBook(event)}
+                        disabled={event.availableSeats <= 0}
+                    >
+                        {event.availableSeats > 0 ? 'Book Ticket' : 'Sold Out'}
+                    </button>
                 </div>
             </div>
         </div>

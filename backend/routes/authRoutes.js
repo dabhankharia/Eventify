@@ -9,5 +9,6 @@ router.get('/verify', authController.verifyRegistration);
 router.post('/verify', authController.verifyRegistration);
 router.post('/resend-verification', authController.resendVerification);
 router.get('/me', authenticateToken, authController.getMe);
+router.delete('/me', authenticateToken, authController.deleteAccount);
 
 module.exports = router;

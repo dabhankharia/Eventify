@@ -27,8 +27,27 @@ function getMailTransporter() {
     return mailTransporter;
 }
 
+const DEMO_EMAILS = [
+    'dhruvil@example.com',
+    'bhankharia.dhruvil@eventify.in'
+];
+
+function isDemoEmail(email) {
+    if (!email) return false;
+    const clean = String(email).toLowerCase().trim();
+    return DEMO_EMAILS.includes(clean) || clean.endsWith('@example.com');
+}
+
 // Helper to send Email with rich HTML formatting & optional attachments (inline CID images)
 async function sendEmail({ to, subject, html, text, attachments = [] }) {
+    if (!to) return { success: false, message: 'No recipient provided' };
+
+    // Do not attempt to deliver emails to non-existent demo attendee/organizer addresses
+    if (isDemoEmail(to)) {
+        console.log(`ℹ️ [Eventify Mail] Skipping email delivery for demo address: ${to}`);
+        return { success: true, skipped: true };
+    }
+
     const fromAddress = process.env.EMAIL_FROM || '"Eventify" <no-reply@eventify.in>';
     const transporter = getMailTransporter();
 
@@ -294,10 +313,52 @@ async function sendCancellationNotification({ recipient, booking, event }) {
     return await sendEmail({ to: email, subject, text, html });
 }
 
+/**
+ * 5. ACCOUNT DELETION NOTICE ("Sorry to see you go")
+ */
+async function sendAccountDeletionNotice({ recipient }) {
+    const { fullName, email } = recipient || {};
+    if (!email) return { success: false, message: 'No email address provided' };
+
+    const subject = 'Your Eventify Account Has Been Deleted - Sorry to see you go';
+    const text = `Hello ${fullName || 'there'},\n\nWe're confirming that your Eventify account (${email}) and all associated ticket bookings have been permanently deleted as requested.\n\nWe're truly sorry to see you go! If you ever decide to return to experience premier events and workshops, you are always welcome to sign up again.\n\nBest regards,\nThe Eventify Team`;
+
+    const html = `
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #0f172a; color: #f8fafc; border-radius: 16px; overflow: hidden; border: 1px solid #1e293b;">
+        <div style="background: linear-gradient(135deg, #ef4444 0%, #b91c1c 100%); padding: 32px 24px; text-align: center;">
+            <span style="background: rgba(255,255,255,0.2); color: #fff; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;">Account Closed</span>
+            <h1 style="margin: 12px 0 0 0; font-size: 26px; color: #ffffff; letter-spacing: -0.5px;">Sorry to see you go!</h1>
+            <p style="margin: 6px 0 0 0; color: #fee2e2; font-size: 14px;">Your Eventify account has been successfully deleted</p>
+        </div>
+        <div style="padding: 32px 24px;">
+            <p style="color: #94a3b8; font-size: 15px; line-height: 1.6; margin-top: 0;">
+                Hello <strong style="color: #f1f5f9;">${fullName || 'there'}</strong>,<br/>
+                This is confirmation that your Eventify account (<strong>${email}</strong>) and all associated passes, bookings, and hosted events have been permanently removed from our platform.
+            </p>
+            <div style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.25); border-radius: 10px; padding: 16px; margin: 24px 0;">
+                <p style="margin: 0; color: #fca5a5; font-size: 14px; line-height: 1.5;">
+                    ⚠️ All digital passes and bookings linked to this account have been invalidated.
+                </p>
+            </div>
+            <p style="color: #94a3b8; font-size: 14px; line-height: 1.6;">
+                Thank you for being part of our community. If this deletion was requested in error or if you wish to explore premier concerts, tech conclaves, and summits again in the future, you are always welcome to register a new account anytime.
+            </p>
+            <p style="color: #64748b; font-size: 12px; margin-top: 24px; border-top: 1px solid #1e293b; padding-top: 16px;">
+                Warm regards,<br/>
+                <strong style="color: #94a3b8;">The Eventify Team</strong>
+            </p>
+        </div>
+    </div>
+    `;
+
+    return await sendEmail({ to: email, subject, text, html });
+}
+
 module.exports = {
     sendEmail,
     sendRegistrationConfirmation,
     sendBookingNotification,
     sendEventOrganizedNotification,
-    sendCancellationNotification
+    sendCancellationNotification,
+    sendAccountDeletionNotice
 };

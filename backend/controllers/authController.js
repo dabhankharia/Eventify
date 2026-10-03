@@ -6,7 +6,7 @@ const { db, schema, isDbConnected } = require('../db');
 const { JWT_SECRET } = require('../middleware/authMiddleware');
 const notificationService = require('../services/notificationService');
 
-const { users } = schema;
+const { users, events } = schema;
 
 // In-Memory fallback store for demo / offline development
 const fallbackPasswordHash = bcrypt.hashSync('Password123!', 10);
@@ -15,7 +15,6 @@ const memoryUsers = [
         id: 'usr_attendee_1',
         fullName: 'Dhruvil Bhankharia',
         email: 'dhruvil@example.com',
-        phoneNumber: null,
         passwordHash: fallbackPasswordHash,
         role: 'Attendee',
         isVerified: true,
@@ -27,7 +26,6 @@ const memoryUsers = [
         id: 'usr_organizer_1',
         fullName: 'Bhankharia Dhruvil',
         email: 'bhankharia.dhruvil@eventify.in',
-        phoneNumber: null,
         passwordHash: fallbackPasswordHash,
         role: 'Organizer',
         isVerified: true,
@@ -126,7 +124,6 @@ async function register(req, res) {
             id: 'usr_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4),
             fullName: fullName.trim(),
             email: cleanEmailVal,
-            phoneNumber: null,
             passwordHash,
             role: role === 'Organizer' ? 'Organizer' : 'Attendee',
             isVerified: false,
@@ -164,9 +161,8 @@ async function register(req, res) {
         return res.status(201).json({
             success: true,
             requiresVerification: true,
-            message: `Registration initiated! We sent a confirmation link to ${newUser.email}. Please click the link to activate your account.`,
+            message: `Registration initiated! We sent a confirmation link to ${newUser.email}. Please click the link in your email to activate your account.`,
             recipient: newUser.email,
-            verificationLink, // Provided for easy development/testing
             user: {
                 id: newUser.id,
                 fullName: newUser.fullName,
@@ -317,8 +313,7 @@ async function resendVerification(req, res) {
 
         return res.json({
             success: true,
-            message: 'A new confirmation link has been sent to your email address.',
-            verificationLink
+            message: 'A new confirmation link has been sent to your email address.'
         });
     } catch (err) {
         console.error('Resend verification error:', err);
@@ -417,11 +412,58 @@ async function getMe(req, res) {
     }
 }
 
+// DELETE /api/auth/me  (Any authenticated user — deletes account + cascades bookings)
+async function deleteAccount(req, res) {
+    try {
+        const userId = req.user.id;
+        const targetUser = await findUserById(userId);
+
+        if (isDbConnected()) {
+            try {
+                // Delete any events hosted by this user (their bookings cascade via FK onDelete: 'cascade')
+                await db.delete(events).where(eq(events.organizerId, userId));
+                // Delete user (user's own ticket bookings cascade automatically via FK onDelete: 'cascade')
+                await db.delete(users).where(eq(users.id, userId));
+            } catch (dbErr) {
+                console.warn('DB error deleting account:', dbErr.message);
+                return res.status(500).json({ success: false, message: 'Failed to delete account from database.' });
+            }
+        }
+
+        // Also purge from in-memory fallback
+        const idx = memoryUsers.findIndex(u => u.id === userId);
+        if (idx !== -1) memoryUsers.splice(idx, 1);
+
+        // Send "Sorry to see you go" email notice (skipped for demo addresses)
+        if (targetUser && targetUser.email) {
+            try {
+                await notificationService.sendAccountDeletionNotice({
+                    recipient: {
+                        fullName: targetUser.fullName,
+                        email: targetUser.email
+                    }
+                });
+            } catch (mailErr) {
+                console.warn('Failed to dispatch account deletion email notice:', mailErr.message);
+            }
+        }
+
+        return res.json({
+            success: true,
+            message: 'Your account and all associated bookings have been permanently deleted.'
+        });
+    } catch (err) {
+        console.error('deleteAccount error:', err);
+        return res.status(500).json({ success: false, message: 'Server error deleting account.' });
+    }
+}
+
 module.exports = {
     register,
     verifyRegistration,
     resendVerification,
     login,
     getMe,
+    deleteAccount,
     findUserById
 };

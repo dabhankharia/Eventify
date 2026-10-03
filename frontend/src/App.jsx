@@ -4,6 +4,7 @@ import Navbar from './components/Navbar';
 import Hero from './components/Hero';
 import EventsGrid from './components/EventsGrid';
 import BookingsView from './components/BookingsView';
+import HostedEventsView from './components/HostedEventsView';
 import OrganizerStudio from './components/OrganizerStudio';
 import AuthModal from './components/AuthModal';
 import BookingModal from './components/BookingModal';
@@ -13,7 +14,7 @@ import ToastContainer from './components/Toast';
 import { launchRazorpayPayment } from './utils/razorpay';
 
 function MainApp() {
-    const { currentUser, verifyAccount } = useAuth();
+    const { currentUser, verifyAccount, logout, isOrganizer } = useAuth();
 
     // App state
     const [activeTab, setActiveTab] = useState('explore');
@@ -23,6 +24,7 @@ function MainApp() {
     const [selectedCategory, setSelectedCategory] = useState('All');
 
     const [bookings, setBookings] = useState([]);
+    const [hostedEvents, setHostedEvents] = useState([]);
     const [toasts, setToasts] = useState([]);
 
     // Modal state
@@ -115,14 +117,66 @@ function MainApp() {
         }
     }, [currentUser]);
 
+    // Load organizer's own hosted events
+    const fetchMyHostedEvents = useCallback(async () => {
+        const token = localStorage.getItem('nexus_jwt_token');
+        if (!token || !currentUser || !isOrganizer) {
+            setHostedEvents([]);
+            return;
+        }
+        try {
+            const res = await fetch('/api/events/my', {
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (data.success) setHostedEvents(data.events);
+        } catch {
+            console.error('Fetch hosted events error');
+        }
+    }, [currentUser, isOrganizer]);
+
     useEffect(() => {
         fetchMyBookings();
-    }, [fetchMyBookings]);
+        fetchMyHostedEvents();
+    }, [fetchMyBookings, fetchMyHostedEvents]);
 
     // Handle Open Auth Modal
     const handleOpenAuth = (mode = 'login') => {
         setAuthModalMode(mode);
         setIsAuthModalOpen(true);
+    };
+
+    // Handle Delete Account
+    const handleDeleteAccount = async () => {
+        const confirmed = confirm(
+            '⚠️ Delete your account permanently?\n\n' +
+            'This will:\n' +
+            '• Permanently delete your account\n' +
+            '• Invalidate ALL tickets and bookings purchased from this account\n' +
+            '• This action CANNOT be undone.\n\n' +
+            'Are you absolutely sure?'
+        );
+        if (!confirmed) return;
+
+        const token = localStorage.getItem('nexus_jwt_token');
+        try {
+            const res = await fetch('/api/auth/me', {
+                method: 'DELETE',
+                headers: { 'Authorization': `Bearer ${token}` }
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                showToast('Account permanently deleted. We\u2019re sorry to see you go.', 'info');
+                logout();
+                setActiveTab('explore');
+                setBookings([]);
+                setHostedEvents([]);
+            } else {
+                showToast(data.message || 'Failed to delete account.', 'error');
+            }
+        } catch {
+            showToast('Error connecting to server.', 'error');
+        }
     };
 
     // Handle Book Ticket Click
@@ -282,7 +336,7 @@ function MainApp() {
 
     // Handle Cancel Booking
     const handleCancelBooking = async (bookingId) => {
-        if (!confirm('Are you sure you want to cancel this booking pass? Seat quota will be restored.')) return;
+        if (!confirm('Are you sure you want to cancel this booking pass?')) return;
 
         const token = localStorage.getItem('nexus_jwt_token');
         try {
@@ -303,7 +357,7 @@ function MainApp() {
         }
     };
 
-    // Handle Delete Event (Organizer Only)
+    // Handle Delete Event (Organizer Only — from Hosted Events tab)
     const handleDeleteEvent = async (eventId) => {
         if (!confirm('Are you sure you want to delete this event? This action cannot be undone.')) return;
 
@@ -317,6 +371,7 @@ function MainApp() {
             if (res.ok && data.success) {
                 showToast('Event deleted successfully.', 'info');
                 fetchEvents();
+                fetchMyHostedEvents();
             } else {
                 showToast(data.message || 'Failed to delete event', 'error');
             }
@@ -332,6 +387,7 @@ function MainApp() {
                 setActiveTab={setActiveTab}
                 bookingsCount={bookings.length}
                 openAuthModal={handleOpenAuth}
+                onDeleteAccount={handleDeleteAccount}
             />
 
             <main>
@@ -347,7 +403,6 @@ function MainApp() {
                             events={events}
                             loading={loadingEvents}
                             onBook={handleStartBooking}
-                            onDelete={handleDeleteEvent}
                         />
                     </>
                 )}
@@ -364,12 +419,21 @@ function MainApp() {
                     />
                 )}
 
+                {activeTab === 'hosted' && (
+                    <HostedEventsView
+                        events={hostedEvents}
+                        onDelete={handleDeleteEvent}
+                        onGoCreateEvent={() => setActiveTab('organizer')}
+                    />
+                )}
+
                 {activeTab === 'organizer' && (
                     <OrganizerStudio
                         events={events}
                         onEventCreated={() => {
                             fetchEvents();
-                            setActiveTab('explore');
+                            fetchMyHostedEvents();
+                            setActiveTab('hosted');
                         }}
                         openAuthModal={handleOpenAuth}
                         showToast={showToast}

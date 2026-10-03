@@ -105,7 +105,7 @@ export function AuthProvider({ children }) {
         }
     };
 
-    // Resend confirmation link via SMS or Email
+    // Resend confirmation link via Email
     const resendVerification = async (identifier) => {
         try {
             const res = await fetch('/api/auth/resend-verification', {

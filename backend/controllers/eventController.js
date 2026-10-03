@@ -16,6 +16,7 @@ let memoryEvents = [
         availableSeats: 85,
         totalSeats: 300,
         organizer: 'Eventify Tech India',
+        organizerId: null,
         description: 'Join 2,000+ engineers, founders, and AI practitioners exploring autonomous agents, LLM architectures, and cloud automation.',
         bannerGradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 50%, #d946ef 100%)',
         badge: 'Featured',
@@ -32,6 +33,7 @@ let memoryEvents = [
         availableSeats: 140,
         totalSeats: 500,
         organizer: 'Sunburn India Productions',
+        organizerId: null,
         description: 'Experience immersive light installations, synthwave performances, and multi-stage electronic music sets on the beaches of Goa.',
         bannerGradient: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 50%, #6366f1 100%)',
         badge: 'Popular',
@@ -48,6 +50,7 @@ let memoryEvents = [
         availableSeats: 18,
         totalSeats: 100,
         organizer: 'Venture India Network',
+        organizerId: null,
         description: 'An exclusive round-table intensive for tech founders scaling SaaS products across India and global markets. Pitch clinics & VC speed-networking.',
         bannerGradient: 'linear-gradient(135deg, #10b981 0%, #059669 50%, #047857 100%)',
         badge: 'Selling Fast',
@@ -63,7 +66,8 @@ let memoryEvents = [
         price: 499,
         availableSeats: 45,
         totalSeats: 150,
-        organizer: 'CodeCraft India Academy',
+        organizer: 'Bhankharia Dhruvil',
+        organizerId: 'usr_organizer_1',
         description: 'Hands-on masterclass building resilient Node.js Express APIs, PostgreSQL with Drizzle ORM, JWT authentication layers, and React frontends.',
         bannerGradient: 'linear-gradient(135deg, #f59e0b 0%, #d97706 50%, #b45309 100%)',
         badge: 'Hands-On',
@@ -196,6 +200,7 @@ async function createEvent(req, res) {
             availableSeats: seats,
             totalSeats: seats,
             organizer: req.user.fullName || 'Verified Eventify Organizer',
+            organizerId: req.user.id,
             description: description ? description.trim() : 'No detailed description provided.',
             bannerGradient,
             badge: 'New',
@@ -236,18 +241,49 @@ async function createEvent(req, res) {
     }
 }
 
-// DELETE /api/events/:id (Organizer Only)
-async function deleteEvent(req, res) {
+// GET /api/events/my (Organizer Only — their own events)
+async function getMyEvents(req, res) {
     try {
-        const { id } = req.params;
+        const organizerId = req.user.id;
 
         if (isDbConnected()) {
             try {
+                const { and } = require('drizzle-orm');
+                const result = await db.select().from(events)
+                    .where(eq(events.organizerId, organizerId))
+                    .orderBy(desc(events.createdAt));
+                return res.json({ success: true, count: result.length, events: result });
+            } catch (dbErr) {
+                console.warn('DB error in getMyEvents:', dbErr.message);
+            }
+        }
+
+        // Fallback
+        const myEvents = memoryEvents.filter(e => e.organizerId === organizerId);
+        return res.json({ success: true, count: myEvents.length, events: myEvents });
+    } catch (err) {
+        return res.status(500).json({ success: false, message: 'Error fetching your events.' });
+    }
+}
+
+// DELETE /api/events/:id (Organizer Only — must own the event)
+async function deleteEvent(req, res) {
+    try {
+        const { id } = req.params;
+        const organizerId = req.user.id;
+
+        if (isDbConnected()) {
+            try {
+                // Verify ownership before deleting
+                const results = await db.select().from(events).where(eq(events.id, id)).limit(1);
+                if (results.length === 0) {
+                    return res.status(404).json({ success: false, message: 'Event not found.' });
+                }
+                if (results[0].organizerId && results[0].organizerId !== organizerId) {
+                    return res.status(403).json({ success: false, message: 'You can only delete events you have created.' });
+                }
                 await db.delete(events).where(eq(events.id, id));
-                return res.json({
-                    success: true,
-                    message: 'Event deleted successfully from PostgreSQL.'
-                });
+                return res.json({ success: true, message: 'Event deleted successfully.' });
             } catch (dbErr) {
                 console.warn('DB delete error:', dbErr.message);
             }
@@ -257,12 +293,13 @@ async function deleteEvent(req, res) {
         if (index === -1) {
             return res.status(404).json({ success: false, message: 'Event not found.' });
         }
+        const evt = memoryEvents[index];
+        if (evt.organizerId && evt.organizerId !== organizerId) {
+            return res.status(403).json({ success: false, message: 'You can only delete events you have created.' });
+        }
         memoryEvents.splice(index, 1);
 
-        return res.json({
-            success: true,
-            message: 'Event deleted successfully.'
-        });
+        return res.json({ success: true, message: 'Event deleted successfully.' });
     } catch (err) {
         return res.status(500).json({ success: false, message: 'Server error deleting event.' });
     }
@@ -300,6 +337,7 @@ module.exports = {
     getAllEvents,
     getEventById,
     createEvent,
+    getMyEvents,
     deleteEvent,
     findEventById,
     updateEventSeats

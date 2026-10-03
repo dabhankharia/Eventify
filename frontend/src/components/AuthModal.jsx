@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Mail, CheckCircle, ArrowRight, RefreshCw, AlertTriangle, ShieldCheck } from 'lucide-react';
+import { X, Mail, CheckCircle, ArrowRight, RefreshCw, AlertTriangle } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 
 export default function AuthModal({ isOpen, onClose, initialMode = 'login', showToast }) {
@@ -11,11 +11,11 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', show
     const [loading, setLoading] = useState(false);
 
     // States for verification flow
-    const [pendingVerification, setPendingVerification] = useState(null); // { recipient, verificationLink }
+    const [pendingVerification, setPendingVerification] = useState(null); // { recipient }
     const [unverifiedAlert, setUnverifiedAlert] = useState(null); // { identifier }
     const [resending, setResending] = useState(false);
 
-    const { login, register, verifyAccount, resendVerification } = useAuth();
+    const { login, register, resendVerification } = useAuth();
 
     if (!isOpen) return null;
 
@@ -33,9 +33,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', show
             const res = await resendVerification(identifier);
             if (res.success) {
                 showToast(res.message, 'success');
-                if (res.verificationLink && pendingVerification) {
-                    setPendingVerification(prev => ({ ...prev, verificationLink: res.verificationLink }));
-                }
             } else {
                 showToast(res.message, 'error');
             }
@@ -43,28 +40,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', show
             showToast('Failed to resend confirmation link', 'error');
         } finally {
             setResending(false);
-        }
-    };
-
-    const handleSimulateClickConfirmation = async (verificationLink) => {
-        try {
-            const urlObj = new URL(verificationLink);
-            const token = urlObj.searchParams.get('verify_token');
-            if (!token) throw new Error('Missing token in link');
-
-            setLoading(true);
-            const res = await verifyAccount(token);
-            if (res.success) {
-                showToast('🎉 Registration finalized and account verified!', 'success');
-                setPendingVerification(null);
-                onClose();
-            } else {
-                showToast(res.message, 'error');
-            }
-        } catch {
-            showToast('Error verifying confirmation link', 'error');
-        } finally {
-            setLoading(false);
         }
     };
 
@@ -101,7 +76,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', show
                     if (res.requiresVerification) {
                         setPendingVerification({
                             recipient: res.recipient || email,
-                            verificationLink: res.verificationLink,
                             message: res.message
                         });
                         showToast('Confirmation link sent to your email', 'success');
@@ -170,33 +144,6 @@ export default function AuthModal({ isOpen, onClose, initialMode = 'login', show
                                 Please click the confirmation link sent to your email inbox to activate your account and start booking passes or organizing events.
                             </p>
                         </div>
-
-                        {/* Instant Verification Action */}
-                        {pendingVerification.verificationLink && (
-                            <div style={{ marginBottom: '16px' }}>
-                                <button
-                                    type="button"
-                                    className="btn-primary"
-                                    onClick={() => handleSimulateClickConfirmation(pendingVerification.verificationLink)}
-                                    disabled={loading}
-                                    style={{
-                                        width: '100%',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        gap: '8px',
-                                        background: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
-                                        boxShadow: '0 4px 14px rgba(16, 185, 129, 0.35)'
-                                    }}
-                                >
-                                    <ShieldCheck size={18} />
-                                    <span>⚡ Click to Finalize Registration Now</span>
-                                </button>
-                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', display: 'block', marginTop: '6px' }}>
-                                    (Instantly verifies confirmation token)
-                                </span>
-                            </div>
-                        )}
 
                         <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
                             <button

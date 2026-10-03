@@ -44,7 +44,7 @@ export async function launchRazorpayPayment({
         prefill: {
             name: user?.fullName || '',
             email: user?.email || '',
-            contact: user?.phoneNumber || ''
+            contact: ''
         },
         notes: {
             eventId: orderData.event?.id,
